@@ -6,11 +6,17 @@
 [![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D.svg?logo=redis)](https://redis.io/)
 [![Celery](https://img.shields.io/badge/Celery-5.3%2B-37814A.svg?logo=celery)](https://docs.celeryq.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Portal](https://img.shields.io/badge/Portal-mundoaec.com-orange.svg)](https://mundoaec.com)
 
 **AutoINCC** é uma plataforma open-source e API RESTful de alta performance projetada para automatizar a extração, transformação, cálculo econômico e disponibilização do **Índice Nacional de Custo da Construção (INCC)**. 
 
-Concebido como projeto irmão do [AutoSINAPI](https://github.com/LAMP-LUCAS/autoSINAPI_API) e do [AutoCUB](https://github.com/LAMP-LUCAS/autoCUB_API) dentro do ecossistema de dados abertos para a construção civil (**Mundo AEC**), o AutoINCC adota a mesma arquitetura de microsserviços distribuídos de alta disponibilidade: **FastAPI + Redis + Celery + PostgreSQL (Star Schema)**.
+Concebido como projeto irmão do [AutoSINAPI](https://github.com/LAMP-LUCAS/autoSINAPI_API) e do [AutoCUB](https://github.com/LAMP-LUCAS/autoCUB_API), o AutoINCC integra o ecossistema de dados abertos para a construção civil (**Mundo AEC**). Todas as ferramentas interativas, simuladores de custos e acesso centralizado às APIs estão disponíveis no portal oficial:
+
+👉 **[mundoaec.com](https://mundoaec.com)** | **[mundoaec.com/autoincc](https://mundoaec.com)**
+
+O AutoINCC adota arquitetura de microsserviços distribuídos de alta disponibilidade: **FastAPI + Redis + Celery + PostgreSQL (Star Schema)**.
+
 
 ---
 
@@ -248,5 +254,6 @@ pytest -v
 
 ## 📄 Licença
 
-Distribuído sob a licença MIT. Consulte `LICENSE` para mais detalhes.
+Distribuído sob a licença **GNU General Public License v3.0 (GPLv3)**. Consulte o arquivo [LICENSE](LICENSE) para os termos completos de uso, modificação e distribuição de código aberto.
+
 

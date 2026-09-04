@@ -42,6 +42,9 @@ Bem-vindo à API oficial do **AutoINCC**, a plataforma aberta de alta performanc
 
 O AutoINCC é parte integrante do ecossistema de dados abertos para a construção civil (**Mundo AEC**), ao lado do [AutoSINAPI](https://github.com/LAMP-LUCAS/autoSINAPI_API) e do [AutoCUB](https://github.com/LAMP-LUCAS/autoCUB_API).
 
+Acesse o portal central em [mundoaec.com](https://mundoaec.com) para explorar ferramentas interativas, calculadoras, dashboards e documentações completas de todo o ecossistema.
+
+
 ---
 
 ## 🏛️ Entendendo o INCC e suas Variantes Oficiais
@@ -117,12 +120,13 @@ app = FastAPI(
     description=API_DESCRIPTION,
     openapi_tags=TAGS_METADATA,
     contact={
-        "name": "Equipe AutoINCC / Mundo AEC",
-        "url": "https://github.com/LAMP-LUCAS",
+        "name": "Mundo AEC / Equipe AutoINCC",
+        "url": "https://mundoaec.com",
+        "email": "contato@mundoaec.com",
     },
     license_info={
-        "name": "MIT License",
-        "url": "https://opensource.org/licenses/MIT",
+        "name": "GNU General Public License v3.0 (GPLv3)",
+        "url": "https://www.gnu.org/licenses/gpl-3.0",
     },
     lifespan=lifespan,
     docs_url="/docs",
@@ -130,11 +134,11 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# Configure CORS for frontend and dashboard integrations
+# Configure CORS securely for web applications, dashboards, and integrations
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
