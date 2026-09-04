@@ -61,13 +61,7 @@ jobs:
       - name: Checkout Repositório
         uses: actions/checkout@v4
 
-      - name: Configurar Docker Buildx
-        uses: actions/setup-buildx-action@v3
+      - name: Build da Imagem Docker
+        run: |
+          docker build -t autoincc_api:test .
 
-      - name: Build da Imagem API
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: autoincc_api:test
