@@ -46,8 +46,42 @@ def _background_etl_worker(
     "/trigger",
     response_model=ETLTriggerResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Trigger the ETL pipeline asynchronously via Celery",
-    description="Dispatches an asynchronous extraction and transformation task to Celery worker via Redis queue. Requires X-API-Key header.",
+    summary="Disparar pipeline assíncrono de ETL via Celery Worker",
+    response_description="Confirmação de recebimento e agendamento da extração com ID da tarefa.",
+    responses={
+        202: {"description": "Tarefa de ETL aceita e enfileirada com sucesso (via Celery/Redis ou BackgroundTasks)."},
+        403: {"description": "Acesso não autorizado: token de API ausente ou inválido no cabeçalho 'X-API-Key'."},
+        422: {"description": "Erro de validação nos dados fornecidos na requisição."},
+    },
+    description="""
+### 🎯 O que resolve
+Permite que operadores de sistema, rotinas automatizadas (cron jobs / agendadores externos) ou pipelines CI/CD disparem sob demanda a sincronização do banco de dados com as fontes oficiais do Banco Central do Brasil (SGS) e FGV.
+
+### 🔐 Autenticação e Segurança
+- **Cabeçalho Obrigatório:** `X-API-Key: {seu_token_secreto}`
+- Rejeita com `403 Forbidden` qualquer requisição que não apresente a chave configurada no ambiente (`API_KEY`).
+
+### 📥 Parâmetros de Entrada (JSON Body opcional)
+- **`series_codes`** *(list[int], opcional)*:
+  Lista de códigos numéricos de séries BCB SGS. Se omitido, processa todas as cadastradas (`[192, 7456]`).
+- **`data_inicial`** *(date, opcional)*:
+  Data inicial do recorte (formato `YYYY-MM-DD`). Se omitido, busca o histórico completo.
+- **`data_final`** *(date, opcional)*:
+  Data final do recorte (formato `YYYY-MM-DD`).
+
+### 📤 O que é retornado
+Objeto `ETLTriggerResponse` contendo:
+- `status`: Sempre `"accepted"` (código HTTP 202).
+- `task_id`: Identificador UUIDv4 único da tarefa no Celery ou worker local.
+- `triggered_at`: Carimbo de data e hora UTC do agendamento.
+- `series`: Códigos de séries submetidos ao processamento.
+
+### ⚙️ Resiliência e Fallback Transparente
+1. **Fila Primária:** A tarefa é enviada ao broker Redis para execução assíncrona desacoplada no `autoincc_celery_worker`.
+2. **Fallback Automático:** Caso o Redis ou Celery estejam temporariamente inalcançáveis, a API redireciona o processamento para as `BackgroundTasks` nativas do FastAPI, garantindo que a extração ocorra sem falhar a chamada do cliente.
+3. **Pacing Ético:** Cada chamada aos servidores governamentais aplica jitter estocástico aleatório ($1,5\\text{s} - 3,0\\text{s}$) e headers de browser para evitar bloqueios ou sobrecarga nos órgãos emissores.
+4. **Invalidação de Cache:** Ao concluir com sucesso, o pipeline invalida automaticamente todas as chaves do Redis sob o padrão `incc:*`.
+""",
 )
 def trigger_etl(
     payload: Optional[ETLTriggerRequest] = None,

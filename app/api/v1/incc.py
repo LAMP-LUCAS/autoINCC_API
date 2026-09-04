@@ -79,14 +79,47 @@ def _format_record(fato: FatoINCC) -> INCCRecordResponse:
 @router.get(
     "/latest",
     response_model=INCCRecordResponse,
-    summary="Get the most recent consolidated INCC index",
-    description="Returns the latest calculated index and variation rates for the specified series (cached in Redis).",
+    summary="Obter o índice mais recente consolidado com taxas acumuladas",
+    response_description="Registro do mês mais recente consolidado com taxas mensal, YTD, 12M e número-índice.",
+    responses={
+        200: {"description": "Índice mais recente retornado com sucesso (via cache Redis ou PostgreSQL)."},
+        404: {"description": "Nenhum dado encontrado para a variante solicitada. Execute o pipeline de ETL."},
+        422: {"description": "Parâmetro 'sigla' inválido (deve ser 'INCC-M' ou 'INCC-DI')."},
+    },
+    description="""
+### 🎯 O que resolve
+Fornece o dado inflacionário mais recente da construção civil para balizamento imediato de custos, precificação de novos contratos, fechamento de relatórios contábeis e medições mensais de obra.
+
+### 📥 Parâmetros de Entrada
+- **`sigla`** *(string, opcional, padrão: `INCC-M`)*:
+  Identificador da série desejada. Aceita:
+  - `INCC-M`: Coletado do dia 21 do mês anterior ao dia 20 do mês de referência (padrão de mercado para obras).
+  - `INCC-DI`: Coletado do dia 1º ao dia 30/31 do mês civil (fechamento contábil).
+
+### 📤 O que é retornado
+Objeto `INCCRecordResponse` contendo:
+- `data_id`: Data de referência do mês (sempre YYYY-MM-01).
+- `variacao_mensal_percentual`: Taxa do mês em percentual (ex: `0.6100` = 0,61%).
+- `variacao_ytd_percentual`: Acumulado no ano corrente até o mês (Year-to-Date).
+- `variacao_12m_percentual`: Acumulado móvel nos últimos 12 meses.
+- `numero_indice`: Número-índice base 100 móvel contínua encadeado.
+
+### 💡 Aplicação Prática no Setor AEC
+- **Medições de Empreiteiros:** Atualização imediata dos índices de reajuste mensal de contratos de construção.
+- **Dashboards de Viabilidade:** Alimentação de painéis de BI de incorporadoras e construtoras sem necessidade de cálculo manual.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:latest:{sigla}`
+- **TTL:** 3.600 segundos (1 hora).
+- **Invalidação:** Automática após cada ciclo de ingestão do ETL.
+""",
 )
 def get_latest_incc(
     sigla: str = Query(
         default="INCC-M",
-        description="Index variation acronym ('INCC-M' or 'INCC-DI')",
+        description="Sigla da variante do índice ('INCC-M' ou 'INCC-DI')",
         pattern="^(?i)(INCC-M|INCC-DI)$",
+        examples=["INCC-M"],
     ),
     db: Session = Depends(get_db),
 ) -> INCCRecordResponse:
@@ -126,18 +159,48 @@ def get_latest_incc(
 @router.get(
     "/history",
     response_model=INCCHistoryResponse,
-    summary="Get historical time series filtered by date interval",
-    description="Returns a paginated list of observations between `data_inicio` and `data_fim` (cached in Redis).",
+    summary="Consultar série temporal histórica com filtros e paginação",
+    response_description="Lista paginada cronológica de observações mensais no período solicitado.",
+    responses={
+        200: {"description": "Série temporal histórica retornada com sucesso."},
+        422: {"description": "Erro de validação: 'data_fim' anterior a 'data_inicio' ou parâmetros fora dos limites."},
+    },
+    description="""
+### 🎯 O que resolve
+Permite extrair fatias temporais da série histórica para estudos de viabilidade, gráficos de evolução de preços, análises retroativas de custos de obras e calibração de modelos orçamentários.
+
+### 📥 Parâmetros de Entrada
+- **`data_inicio`** *(date, obrigatório)*: Data inicial do período desejado (formato `YYYY-MM-DD`).
+- **`data_fim`** *(date, obrigatório)*: Data final do período desejado (formato `YYYY-MM-DD`). Deve ser igual ou posterior à data de início.
+- **`sigla`** *(string, opcional, padrão: `INCC-M`)*: Filtrar por variante (`INCC-M` ou `INCC-DI`). Se omitido, pode trazer todas.
+- **`skip`** *(int, opcional, padrão: 0)*: Deslocamento (offset) para paginação.
+- **`limit`** *(int, opcional, padrão: 100, máx: 1000)*: Quantidade máxima de registros retornados por página.
+
+### 📤 O que é retornado
+Objeto `INCCHistoryResponse` contendo:
+- `total`: Contagem total de registros que satisfazem aos critérios de busca.
+- `skip` e `limit`: Parâmetros de paginação refletidos.
+- `items`: Lista cronológica de observações com taxas mensais, acumulados e número-índice contínuo.
+
+### 💡 Aplicação Prática no Setor AEC
+- **Curva S e Orçamento Paramétrico:** Cruzamento do avanço físico-financeiro planejado com o encadeamento real do INCC ocorrido durante os anos da construção.
+- **Perícias Contratuais:** Levantamento do histórico oficial para conferência de cálculos de reajustes passados.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:history:{dt_start}:{dt_end}:{sigla}:{skip}:{limit}`
+- **TTL:** 3.600 segundos (1 hora).
+""",
 )
 def get_incc_history(
-    data_inicio: date = Query(..., description="Start date (YYYY-MM-DD)"),
-    data_fim: date = Query(..., description="End date (YYYY-MM-DD)"),
+    data_inicio: date = Query(..., description="Data inicial do período (YYYY-MM-DD)", examples=["2023-01-01"]),
+    data_fim: date = Query(..., description="Data final do período (YYYY-MM-DD)", examples=["2024-06-01"]),
     sigla: Optional[str] = Query(
         default="INCC-M",
-        description="Index variant ('INCC-M' or 'INCC-DI')",
+        description="Variante do índice ('INCC-M' ou 'INCC-DI')",
+        examples=["INCC-M"],
     ),
-    skip: int = Query(default=0, ge=0, description="Offset pagination"),
-    limit: int = Query(default=100, ge=1, le=1000, description="Items limit per page"),
+    skip: int = Query(default=0, ge=0, description="Deslocamento de paginação (offset)", examples=[0]),
+    limit: int = Query(default=100, ge=1, le=1000, description="Quantidade máxima de itens por página", examples=[100]),
     db: Session = Depends(get_db),
 ) -> INCCHistoryResponse:
     """Returns chronological series observations within the specified date interval (with Redis cache)."""
@@ -196,8 +259,38 @@ def get_incc_history(
 @router.post(
     "/correction",
     response_model=INCCCorrectionResponse,
-    summary="Calculate monetary correction between two dates",
-    description="Calculates adjusted value using cumulative index variation: Factor = Index_Final / Index_Initial.",
+    summary="Calcular correção monetária e reajuste contratual entre duas datas",
+    response_description="Resultado detalhado da correção monetária com fator multiplicador e variação acumulada.",
+    responses={
+        200: {"description": "Cálculo de correção monetária processado com sucesso."},
+        404: {"description": "Índice inicial ou final não localizado para as datas especificadas."},
+        422: {"description": "Payload inválido: valor inicial negativo ou data final anterior à inicial."},
+        500: {"description": "Erro de cálculo interno: índice inicial nulo ou inconsistente."},
+    },
+    description="""
+### 🎯 O que resolve
+Automatiza com 100% de precisão matemática o cálculo de reajuste monetário de contratos de venda de imóveis na planta, parcelas de financiamento imobiliário direto com construtoras e orçamentos de obras públicas ou privadas.
+
+### 📥 Parâmetros de Entrada (JSON Body)
+- **`valor_inicial`** *(Decimal > 0)*: Valor nominal em Reais (R$) da obrigação ou parcela a ser reajustada.
+- **`data_inicio`** *(date)*: Mês base do contrato/proposta original (formato `YYYY-MM-DD`). Normalizado para o 1º dia do mês.
+- **`data_fim`** *(date)*: Mês de vencimento/reajuste monetário desejado (formato `YYYY-MM-DD`). Normalizado para o 1º dia do mês.
+- **`sigla`** *(string, opcional, padrão: `INCC-M`)*: Variante do índice estipulada na cláusula contratual (`INCC-M` ou `INCC-DI`).
+
+### 📤 O que é retornado
+Objeto `INCCCorrectionResponse` contendo:
+- `valor_inicial`: Valor original informado.
+- `valor_corrigido`: Valor final atualizado com arredondamento contábil bancário (`ROUND_HALF_UP` em 2 casas decimais).
+- `fator_correcao`: Razão matemática exata $\\frac{I_{\\text{final}}}{I_{\\text{inicial}}}$ (8 casas decimais).
+- `variacao_acumulada_percentual`: Taxa percentual total de reajuste acumulado no intervalo: $(Fator - 1) \\times 100$.
+- `indice_inicial` e `indice_final`: Números-índices de base contínua utilizados no cálculo.
+
+### 💡 Aplicação Prática no Setor AEC
+- **Emissão de Boletos na Construção Civil:** Cláusula padrão de compra de imóveis prevê: *"As parcelas vencíveis durante a construção serão corrigidas mensalmente pela variação acumulada do INCC-M"*. Esse endpoint executa essa exata fórmula de forma auditável e instantânea.
+
+### ⚡ Precisão Numérica
+Utiliza tipos `Decimal` nativos e encadeamento contínuo em `NUMERIC(28, 6)` no PostgreSQL, prevenindo desvios de arredondamento inerentes ao ponto flutuante IEEE 754.
+""",
 )
 def calculate_incc_correction(
     payload: INCCCorrectionRequest,
@@ -282,8 +375,34 @@ def calculate_incc_correction(
 @router.get(
     "/overview",
     response_model=INCCOverviewResponse,
-    summary="Get current market overview and key dynamics",
-    description="Returns latest INCC-M and INCC-DI rates, spreads, rolling returns (24M, 36M), and acceleration trend.",
+    summary="Raio-X consolidado do mercado da construção civil e dinâmica de momento",
+    response_description="Snapshot econômico com taxas atuais de M e DI, spread pontual, acumulados multijanelas e aceleração.",
+    responses={
+        200: {"description": "Visão geral gerada e retornada com sucesso (via Redis ou PostgreSQL)."},
+        404: {"description": "Nenhum dado encontrado no banco de dados. Execute o pipeline de ETL."},
+    },
+    description="""
+### 🎯 O que resolve
+Apresenta uma síntese executiva consolidada da inflação da construção civil no mês mais recente, cruzando os índices **INCC-M** e **INCC-DI** em um único payload ultrarrápido, sem necessidade de múltiplas requisições.
+
+### 📤 O que é retornado
+Objeto `INCCOverviewResponse` contendo:
+- `data_referencia`: Mês de competência mais recente disponível.
+- `incc_m` e `incc_di`: Snapshots completos das taxas do mês, YTD, 12M e janelas estendidas de 24M e 36M.
+- `spread_mensal_pontos`: Diferença em pontos percentuais entre as duas variantes ($v_{\\text{INCC-M}} - v_{\\text{INCC-DI}}$). Se negativo, indica que o INCC-DI subiu mais que o INCC-M.
+- `aceleracao_incc_m`: Análise de momentum inflacionário:
+  - `delta_mes_anterior_pontos`: Comparação com o mês imediatamente anterior ($v_t - v_{t-1}$).
+  - `delta_ano_anterior_pontos`: Comparação com o mesmo mês do ano anterior ($v_t - v_{t-12}$).
+  - `tendencia`: Diagnóstico qualitativo automático (`acelerando`, `desacelerando` ou `estavel`).
+
+### 💡 Aplicação Prática no Setor AEC
+- **Comitê de Compras e Suprimentos:** Identificação precoce de aceleração nos custos de insumos da construção para antecipação de compras de aço, concreto e cabeamento elétrico.
+- **Relatórios Executivos de Diretoria:** Fornece métricas prontas para o C-level sem requerer cálculos analíticos ad-hoc no frontend.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:overview`
+- **TTL:** 3.600 segundos (1 hora).
+""",
 )
 def get_market_overview(
     db: Session = Depends(get_db),
@@ -308,14 +427,43 @@ def get_market_overview(
 @router.get(
     "/compare",
     response_model=INCCCompareResponse,
-    summary="Compare INCC-M and INCC-DI side-by-side",
-    description="Returns aligned monthly observations for both variants with calculated spread and dominance.",
+    summary="Comparação lado a lado entre INCC-M e INCC-DI ao longo do tempo",
+    response_description="Série cronológica unificada com taxas alinhadas, spread e detecção da variante dominante.",
+    responses={
+        200: {"description": "Série comparativa gerada com sucesso."},
+        422: {"description": "Filtro de datas inválido ('data_fim' anterior a 'data_inicio')."},
+    },
+    description="""
+### 🎯 O que resolve
+Elimina a necessidade de mesclar manualmente planilhas ou efetuar joins complexos entre tabelas para comparar o **INCC-M** e o **INCC-DI**. Fornece a série temporal unificada com o spread calculado ponto a ponto.
+
+### 📥 Parâmetros de Entrada
+- **`data_inicio`** *(date, opcional)*: Data inicial do filtro de observações (YYYY-MM-DD).
+- **`data_fim`** *(date, opcional)*: Data final do filtro de observações (YYYY-MM-DD).
+- **`skip`** *(int, opcional, padrão: 0)*: Offset para paginação de resultados.
+- **`limit`** *(int, opcional, padrão: 100, máx: 1000)*: Tamanho da página.
+
+### 📤 O que é retornado
+Objeto `INCCCompareResponse` com lista de itens contendo:
+- `data_id`, `ano`, `mes`: Referência temporal.
+- `incc_m_variacao_percentual` e `incc_di_variacao_percentual`: Taxas mensais lado a lado.
+- `spread_variacao_pontos`: Spread exato em p.p. ($v_{\\text{INCC-M}} - v_{\\text{INCC-DI}}$).
+- `variante_maior_taxa`: Indica quem teve maior pressão inflacionária no mês (`INCC-M`, `INCC-DI` ou `EMPATE`).
+
+### 💡 Aplicação Prática no Setor AEC
+- **Definição de Cláusulas Contratuais:** Avaliação de qual variante é historicamente mais estável ou mais favorável para construtores ou compradores em diferentes prazos de obra.
+- **Auditoria de Divergência Contábil:** Identificação de meses atípicos em que a diferença de apuração entre o dia 20 e o fim do mês gerou grandes distorções de custo.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:compare:{dt_start}:{dt_end}:{skip}:{limit}`
+- **TTL:** 3.600 segundos (1 hora).
+""",
 )
 def compare_incc_variants(
-    data_inicio: Optional[date] = Query(default=None, description="Filter start date (YYYY-MM-DD)"),
-    data_fim: Optional[date] = Query(default=None, description="Filter end date (YYYY-MM-DD)"),
-    skip: int = Query(default=0, ge=0, description="Offset pagination"),
-    limit: int = Query(default=100, ge=1, le=1000, description="Page limit"),
+    data_inicio: Optional[date] = Query(default=None, description="Data inicial para filtro (YYYY-MM-DD)", examples=["2024-01-01"]),
+    data_fim: Optional[date] = Query(default=None, description="Data final para filtro (YYYY-MM-DD)", examples=["2024-12-01"]),
+    skip: int = Query(default=0, ge=0, description="Offset de paginação", examples=[0]),
+    limit: int = Query(default=100, ge=1, le=1000, description="Limite de registros por página", examples=[100]),
     db: Session = Depends(get_db),
 ) -> INCCCompareResponse:
     """Historical side-by-side comparison of INCC-M and INCC-DI with spread calculation."""
@@ -348,14 +496,44 @@ def compare_incc_variants(
 @router.get(
     "/analytics/seasonality",
     response_model=INCCSeasonalityResponse,
-    summary="Get historical calendar month seasonality matrix",
-    description="Computes 12-month historical statistics (mean, median, standard deviation, high probability) for an index variant.",
+    summary="Matriz estatística de sazonalidade dos 12 meses do ano civil",
+    response_description="Distribuição empírica de médias, desvios e probabilidade de alta para cada mês de Janeiro a Dezembro.",
+    responses={
+        200: {"description": "Matriz sazonal histórica calculada com sucesso."},
+        404: {"description": "Nenhum dado localizado para calcular a sazonalidade da variante."},
+        422: {"description": "Sigla informada inválida (deve ser 'INCC-M' ou 'INCC-DI')."},
+    },
+    description="""
+### 🎯 O que resolve
+Identifica os padrões sazonais estruturais da construção civil no Brasil ao longo de mais de 80 anos de história (1944 ao presente). Revela os meses do ano com concentração histórica de reajustes salariais (dissídios) e oscilações na demanda por materiais.
+
+### 📥 Parâmetros de Entrada
+- **`sigla`** *(string, opcional, padrão: `INCC-M`)*:
+  Variante do índice a ser avaliada (`INCC-M` ou `INCC-DI`).
+
+### 📤 O que é retornado
+Objeto `INCCSeasonalityResponse` contendo a decomposição para os 12 meses do ano:
+- `mes` e `nome_mes`: Mês do calendário (1=Janeiro a 12=Dezembro).
+- `total_anos`: Número de anos civis com dados catalogados.
+- `media_variacao_percentual` e `mediana_variacao_percentual`: Nível médio e central de inflação daquele mês.
+- `desvio_padrao_pontos`: Dispersão histórica das taxas.
+- `minima_variacao_percentual` e `maxima_variacao_percentual`: Recordes históricos daquele mês específico.
+- `probabilidade_alta_percentual`: Proporção percentual de vezes em que o mês fechou com inflação estritamente positiva.
+
+### 💡 Aplicação Prática no Setor AEC
+- **Previsão Orçamentária e Fluxo de Caixa:** Permite ao setor de planejamento antecipar que meses como **Maio e Junho** tradicionalmente concentram picos de reajuste devido aos dissídios sindicais da construção civil na região Sudeste, provisionando caixa com precisão.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:seasonality:{sigla}`
+- **TTL:** 86.400 segundos (24 horas).
+""",
 )
 def get_seasonality_analysis(
     sigla: str = Query(
         default="INCC-M",
-        description="Index variation acronym ('INCC-M' or 'INCC-DI')",
+        description="Sigla da série desejada ('INCC-M' ou 'INCC-DI')",
         pattern="^(?i)(INCC-M|INCC-DI)$",
+        examples=["INCC-M"],
     ),
     db: Session = Depends(get_db),
 ) -> INCCSeasonalityResponse:
@@ -381,14 +559,46 @@ def get_seasonality_analysis(
 @router.get(
     "/analytics/stats",
     response_model=INCCStatsResponse,
-    summary="Get aggregated statistical metrics for an index variant",
-    description="Calculates overall distribution metrics, annualized volatility, and historical all-time highs and lows.",
+    summary="Resumo estatístico agregado, volatilidade anualizada e recordes históricos",
+    response_description="Métricas descritivas globais, desvio padrão, volatilidade e recordes históricos da série.",
+    responses={
+        200: {"description": "Resumo estatístico calculado com sucesso."},
+        404: {"description": "Nenhum dado localizado para calcular as estatísticas da série."},
+        422: {"description": "Sigla informada inválida (deve ser 'INCC-M' ou 'INCC-DI')."},
+    },
+    description="""
+### 🎯 O que resolve
+Oferece um panorama estatístico abrangente de toda a série histórica, permitindo mensurar a dispersão dos custos da construção, a volatilidade anualizada e os marcos de estresse inflacionário da economia brasileira.
+
+### 📥 Parâmetros de Entrada
+- **`sigla`** *(string, opcional, padrão: `INCC-M`)*:
+  Variante do índice a ser avaliada (`INCC-M` ou `INCC-DI`).
+
+### 📤 O que é retornado
+Objeto `INCCStatsResponse` contendo:
+- `total_observacoes`: Quantidade total de observações mensais no banco.
+- `data_inicio` e `data_fim`: Intervalo cronológico total coberto.
+- `media_mensal_percentual` e `mediana_mensal_percentual`: Medidas de tendência central.
+- `desvio_padrao_mensal_pontos`: Desvio padrão amostral mensal.
+- `volatilidade_anualizada_percentual`: Volatilidade anualizada calculada pela métrica padrão da econometria $\\sigma \\times \\sqrt{12}$.
+- `recorde_alta_percentual` e `recorde_alta_data`: Maior taxa registrada na história e sua data de ocorrência (ex: 78,41% em Março/1990).
+- `recorde_baixa_percentual` e `recorde_baixa_data`: Menor taxa registrada na história e sua data de ocorrência.
+
+### 💡 Aplicação Prática no Setor AEC
+- **Gestão de Risco e Seguros de Engenharia:** Parametrização de modelos de estresse (stress testing) e cálculo de prêmios de seguro de risco de engenharia e garantias contratuais.
+- **Modelagem de Monte Carlo:** Alimentação de premissas estocásticas de volatilidade de custos para estudos de viabilidade econômica de empreendimentos de longo prazo.
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:stats:{sigla}`
+- **TTL:** 86.400 segundos (24 horas).
+""",
 )
 def get_series_statistics(
     sigla: str = Query(
         default="INCC-M",
-        description="Index variation acronym ('INCC-M' or 'INCC-DI')",
+        description="Sigla da série desejada ('INCC-M' ou 'INCC-DI')",
         pattern="^(?i)(INCC-M|INCC-DI)$",
+        examples=["INCC-M"],
     ),
     db: Session = Depends(get_db),
 ) -> INCCStatsResponse:
@@ -414,8 +624,34 @@ def get_series_statistics(
 @router.get(
     "/metadata",
     response_model=INCCMetadataResponse,
-    summary="Get technical catalog, collection windows, and methodological notes",
-    description="Returns official metadata, primary sources, collection windows, and methodological revision history.",
+    summary="Catálogo técnico, fontes primárias e governança metodológica",
+    response_description="Catálogo oficial das séries, fontes, metodologia e notas de governança.",
+    responses={
+        200: {"description": "Metadados e notas de governança retornados com sucesso."},
+    },
+    description="""
+### 🎯 O que resolve
+Garante transparência, rastreabilidade e compliance técnico para auditores, desenvolvedores e engenheiros, documentando oficialmente os códigos das séries, metodologias de apuração, órgãos emissores e notas estruturais.
+
+### 📤 O que é retornado
+Objeto `INCCMetadataResponse` contendo:
+- `series`: Catálogo de cada variante disponível:
+  - `sigla`: INCC-M ou INCC-DI.
+  - `codigo_bcb`: Código numérico no Sistema Gerenciador de Séries (SGS) do Banco Central (192 para INCC-M, 7456 para INCC-DI).
+  - `nome_oficial`: Denominação formal.
+  - `fonte_primaria`: FGV IBRE / Banco Central do Brasil.
+  - `instituto_responsavel`: Fundação Getulio Vargas (FGV IBRE).
+  - `janela_coleta`: Período exato de apuração (21 do mês anterior ao dia 20 vs mês civil).
+  - `metodologia`: Resumo metodológico e distribuição de pesos.
+- `notas_metodologicas`: Registro de marcos históricos e revisões metodológicas estruturais (como a grande revisão da FGV em Julho de 2023, introduzindo três padrões construtivos).
+
+### 💡 Aplicação Prática no Setor AEC
+- **Perícias e Pareceres Técnicos Judiciais:** Embasamento comprobatório de fontes oficiais aceitas pelos Tribunais de Justiça e órgãos fiscalizadores (TCU, Caixa Econômica Federal).
+
+### ⚡ Estratégia de Cache e Resiliência
+- **Chave Redis:** `incc:metadata`
+- **TTL:** 86.400 segundos (24 horas).
+""",
 )
 def get_series_metadata() -> INCCMetadataResponse:
     """Catalog metadata and governance documentation for the AutoINCC series."""
@@ -427,4 +663,5 @@ def get_series_metadata() -> INCCMetadataResponse:
     metadata = AnalyticsService.get_series_metadata()
     set_cache(cache_key, metadata.model_dump(mode="json"), ttl_seconds=86400)
     return metadata
+
 
