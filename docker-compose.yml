@@ -1,0 +1,129 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: autoincc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: autoincc
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./app/db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d autoincc"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - autoincc_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: autoincc_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - autoincc_network
+
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autoincc_init
+    restart: "no"
+    command: ["python", "-m", "app.db.init_service"]
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/autoincc
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - autoincc_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autoincc_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DEBUG=False
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/autoincc
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_ENABLED=True
+      - CACHE_TTL_SECONDS=3600
+      - API_KEY=autoincc_secret_token_dev_123
+      - BCB_API_URL=https://api.bcb.gov.br/dados/serie/bcdata.sgs
+      - ETL_REQUEST_DELAY_BASE=1.5
+      - ETL_REQUEST_DELAY_JITTER=1.5
+      - ETL_POLITE_PACING_ENABLED=True
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    networks:
+      - autoincc_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autoincc_celery_worker
+    restart: unless-stopped
+    command: ["celery", "-A", "app.tasks.celery_app", "worker", "-l", "info", "--concurrency=2"]
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/autoincc
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_ENABLED=True
+      - CACHE_TTL_SECONDS=3600
+      - BCB_API_URL=https://api.bcb.gov.br/dados/serie/bcdata.sgs
+      - ETL_REQUEST_DELAY_BASE=1.5
+      - ETL_REQUEST_DELAY_JITTER=1.5
+      - ETL_POLITE_PACING_ENABLED=True
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    networks:
+      - autoincc_network
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  autoincc_network:
+    driver: bridge
