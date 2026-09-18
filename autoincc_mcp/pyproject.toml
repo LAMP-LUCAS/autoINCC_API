@@ -1,0 +1,35 @@
+[project]
+name = "autoincc-mcp"
+version = "0.1.0"
+description = "MCP adapters for AutoINCC indices and monetary correction"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.12,<2", "httpx>=0.27,<1", "pydantic>=2.11,<3",
+    "pydantic-settings>=2,<3", "redis>=5,<7", "structlog>=24", "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.9", "mypy>=1.14"]
+
+[project.scripts]
+autoincc-mcp = "autoincc_mcp:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+"src/autoincc_mcp/cache.py" = ["BLE001"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

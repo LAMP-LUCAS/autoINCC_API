@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+RUN groupadd --system --gid 1000 appuser && useradd --system --uid 1000 --gid 1000 --create-home appuser
+WORKDIR /app
+COPY pyproject.toml ./
+COPY src/ src/
+RUN pip install --no-cache-dir -e ".[dev]"
+USER appuser
+EXPOSE 8080
+ENTRYPOINT ["python", "-m", "autoincc_mcp.server"]

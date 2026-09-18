@@ -1,0 +1,8 @@
+*
+!pyproject.toml
+!src/
+!src/**
+!docker/
+!docker/**
+**/__pycache__
+**/*.pyc
