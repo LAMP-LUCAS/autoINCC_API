@@ -29,4 +29,18 @@ Entregável proposto: **`autoincc/MCP-Catalog v1`**, publicado e versionado por 
 - [ ] Sessão, cancelamento, limites, transporte e compatibilidade testados.
 - [ ] Release identifica versões OpenAPI/MCP/admissão e evidência de testes, sem declarar código totalmente verificado.
 
-Implementação e integração não foram executadas nesta revisão documental. Observações estáticas indicam pontos de revisão, não exploração confirmada ou breach.
+## Adaptador local em desenvolvimento
+
+Pacote independente `autoincc_mcp`, layout src/tools em dois tiers seguindo a referência Matryoshka. Contrato estático: revisão de produto `361634ab7bdb8b7103eaa58f410205d8cb73b62f`, routers montados em `/api/v1`; sem consulta ao OpenAPI runtime. Oito tools solicitadas: latest, history, correction (POST), overview, compare, seasonality, stats e metadata. Stats usa `/api/v1/incc/analytics/stats`; nenhuma tool ETL/admin. Entradas preservam datas, paginação e Decimal; cálculos e respostas ficam sob autoridade REST.
+
+Configuração exclusivamente por ambiente: `AUTOINCC_BASE_URL` usa a constante `DEFAULT_GATEWAY_BASE_URL` (`http://api-gateway-kong:8000`), contrato interno de serviço; `AUTOINCC_CACHE_URL` é opcional, sem fallback de infraestrutura. `AUTOINCC_CACHE_TTL=300`, `AUTOINCC_TIMEOUT=30`, `AUTOINCC_RETRIES=3` (total de tentativas). `AUTOINCC_MCP_PORT=8080`, `AUTOINCC_MCP_HOST=0.0.0.0`, `AUTOINCC_MCP_TRANSPORT=streamable-http` (também SSE e stdio). GET `/sse` é SSE legado; POST `/sse` é Streamable HTTP; `/messages/` recebe mensagens SSE. FastMCP mantém defaults de segurança.
+
+BYOK por chamada, sem chave global e sem leitura de dotenv. Cache Redis usa `autoincc:` + impressão SHA-256 truncada + argumentos canônicos. O cache-aside exige callback confiável de autorização antes da leitura; sem callback, consulta o gateway em toda execução e não lê/escreve cache. Tools não instalam admissão fictícia: integração de `saas-gateway/MCP-Admission v1`, tenant/escopo, revogação e contabilização continuam gates de exposição. Fingerprint não substitui admissão.
+
+Entrega inclui testes isolados e Dockerfiles; sem build Docker ou deployment. O responsável pela integração deve configurar URL/rotas autorizadas do gateway, cache dedicado, admissão antes de cache, rede/ingress e limites. Não alterar o Dockerfile existente da API. Testes locais não aprovam catálogo nem validam runtime.
+
+### Evidências locais
+
+Em 2026-09-17: `pytest -q` — 63 testes aprovados; `ruff check .` e `mypy src` aprovados (9 módulos). Ambiente isolado Python 3.12, MCP SDK 1.30.0; instalação via `pip install --no-deps .` construiu wheel e confirmou `autoincc-mcp = autoincc_mcp:main`. Testes bloqueiam sockets externos, simulam HTTP/Redis e verificam handshake Streamable HTTP, descoberta de 8 tools e lifespan. SSE legado tem roteamento verificado, não sessão ponta a ponta. Dockerfiles usam Python 3.11, ainda não testado em container. `/health` local é liveness no modo combinado, não readiness de gateway/Redis; o healthcheck Docker pressupõe esse modo. `Dockerfile.dev` não configura hot reload.
+
+Nenhuma validação de API live, admissão operacional, build Docker ou deployment foi executada. Cache não serve hits nas tools até integração confiável de admissão; erros de autorização não são cacheados. `BLE001` é excetuado apenas em cache.py para fronteiras de degradação e negação segura. Respostas são JSON REST preservado, sem revalidação contra DTOs duplicados. `history(sigla=None)` envia string vazia para selecionar todas as variantes: omitir o parâmetro REST selecionaria o default INCC-M. Validação e serialização monetária usam Decimal sem conversão para float.
