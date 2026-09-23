@@ -25,6 +25,20 @@ def test_health_endpoint(client: TestClient) -> None:
     assert response.json() == {"status": "healthy"}
 
 
+def test_health_canonical_contract(client: TestClient) -> None:
+    """Contrato canônico do gateway: `GET /api/v1/incc/health`.
+
+    Regressão detectada pelo canary: o alias foi registrado como
+    `f"{settings.API_V1_STR}/health"`, mas `API_V1_STR` é só `/api/v1` — o
+    segmento `/incc` vem do prefixo de `app.api.v1.incc.router`. O path
+    canônico respondia 404 enquanto `/api/v1/health` (fora do contrato)
+    respondia 200.
+    """
+    response = client.get("/api/v1/incc/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+
 def test_get_latest_incc_not_found(client: TestClient) -> None:
     """Verifies 404 response when no data has been populated."""
     response = client.get("/api/v1/incc/latest?sigla=INCC-DI")

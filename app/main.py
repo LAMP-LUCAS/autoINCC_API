@@ -167,7 +167,12 @@ def root() -> Dict[str, str]:
     status_code=status.HTTP_200_OK,
 )
 @app.get(
-    f"{settings.API_V1_STR}/health",
+    # Literal, NÃO `f"{settings.API_V1_STR}/health"`: `API_V1_STR` é só
+    # "/api/v1" — o segmento "/incc" vem do prefixo de
+    # `app.api.v1.incc.router`. Usar o settings aqui registrou
+    # "/api/v1/health" e o contrato canônico respondeu 404 (regressão
+    # detectada pelo canary). Literal trava o path no contrato do gateway.
+    "/api/v1/incc/health",
     tags=["Health"],
     summary="Health check endpoint (canônico /api/v1/incc/health)",
     status_code=status.HTTP_200_OK,
@@ -176,9 +181,10 @@ def root() -> Dict[str, str]:
 def health_check() -> Dict[str, str]:
     """Service health verification probe for container orchestration.
 
-    Contrato canônico do ecossistema Mundoaec: exposto em
-    `GET /api/v1/incc/health` (via gateway, `strip_path=false` → preserva o path).
-    Mantém também o alias `/health` para probes de container/CI.
+    Contrato canônico do ecossistema Mundoaec: `GET /api/v1/incc/health`.
+    Com a rota do gateway em `strip_path=false` (SSOT `setup.sh`) o upstream
+    recebe o path completo; se alguém trocar para `strip_path=true` o mesmo
+    handler continua sendo alcançado via `/health`, que também é mantido.
     """
     return {"status": "healthy"}
 
