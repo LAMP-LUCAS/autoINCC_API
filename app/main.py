@@ -166,8 +166,20 @@ def root() -> Dict[str, str]:
     summary="Health check endpoint",
     status_code=status.HTTP_200_OK,
 )
+@app.get(
+    f"{settings.API_V1_STR}/health",
+    tags=["Health"],
+    summary="Health check endpoint (canônico /api/v1/incc/health)",
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+)
 def health_check() -> Dict[str, str]:
-    """Service health verification probe for container orchestration."""
+    """Service health verification probe for container orchestration.
+
+    Contrato canônico do ecossistema Mundoaec: exposto em
+    `GET /api/v1/incc/health` (via gateway, `strip_path=false` → preserva o path).
+    Mantém também o alias `/health` para probes de container/CI.
+    """
     return {"status": "healthy"}
 
 
