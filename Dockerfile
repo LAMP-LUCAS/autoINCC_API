@@ -47,6 +47,9 @@ RUN groupadd -g 10001 appgroup && \
 # Copy application source code
 COPY --chown=appuser:appgroup app /app/app
 
+# Fix ownership of WORKDIR so celery beat can write schedule file
+RUN chown appuser:appgroup /app
+
 USER appuser
 
 EXPOSE 8000

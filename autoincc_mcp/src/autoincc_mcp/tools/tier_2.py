@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import Annotated
 
 from pydantic import Field, validate_call
+from mcp.server.fastmcp import Context
 
+from autoincc_mcp.auth import resolve_api_key
 from autoincc_mcp.cache import cache_key
 from autoincc_mcp.tools.tier_1 import (
     Limit,
@@ -16,7 +18,8 @@ from autoincc_mcp.tools.tier_1 import (
 )
 
 
-async def _get(path: str, params: dict, api_key: str | None) -> dict | list:
+async def _get(path: str, params: dict, ctx: Context | None) -> dict | list:
+    api_key = resolve_api_key(ctx)
     params = {
         k: v.isoformat() if isinstance(v, date) else v for k, v in params.items() if v is not None
     }
@@ -32,8 +35,9 @@ async def incc_correction(
     data_inicio: date,
     data_fim: date,
     sigla: str = "INCC-M",
-    api_key: str | None = None,
+    ctx: Context | None = None,
 ) -> dict | list:
+    api_key = resolve_api_key(ctx)
     validate_dates(data_inicio, data_fim)
     body = {
         "valor_inicial": str(valor_inicial),
@@ -48,8 +52,8 @@ async def incc_correction(
 
 
 @validate_call
-async def incc_overview(api_key: str | None = None) -> dict | list:
-    return await _get("/api/v1/incc/overview", {}, api_key)
+async def incc_overview(ctx: Context | None = None) -> dict | list:
+    return await _get("/api/v1/incc/overview", {}, ctx)
 
 
 @validate_call
@@ -58,21 +62,22 @@ async def incc_compare(
     data_fim: date | None = None,
     skip: Offset = 0,
     limit: Limit = 100,
-    api_key: str | None = None,
+    ctx: Context | None = None,
 ) -> dict | list:
+    api_key = resolve_api_key(ctx)
     validate_dates(data_inicio, data_fim)
     return await _get(
         "/api/v1/incc/compare",
         {"data_inicio": data_inicio, "data_fim": data_fim, "skip": skip, "limit": limit},
-        api_key,
+        ctx,
     )
 
 
 @validate_call
-async def incc_seasonality(sigla: Sigla = "INCC-M", api_key: str | None = None) -> dict | list:
-    return await _get("/api/v1/incc/analytics/seasonality", {"sigla": sigla}, api_key)
+async def incc_seasonality(sigla: Sigla = "INCC-M", ctx: Context | None = None) -> dict | list:
+    return await _get("/api/v1/incc/analytics/seasonality", {"sigla": sigla}, ctx)
 
 
 @validate_call
-async def incc_stats(sigla: Sigla = "INCC-M", api_key: str | None = None) -> dict | list:
-    return await _get("/api/v1/incc/analytics/stats", {"sigla": sigla}, api_key)
+async def incc_stats(sigla: Sigla = "INCC-M", ctx: Context | None = None) -> dict | list:
+    return await _get("/api/v1/incc/analytics/stats", {"sigla": sigla}, ctx)

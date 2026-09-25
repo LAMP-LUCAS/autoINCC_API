@@ -2,7 +2,9 @@ from datetime import date
 from typing import Annotated
 
 from pydantic import AfterValidator, Field, validate_call
+from mcp.server.fastmcp import Context
 
+from autoincc_mcp.auth import resolve_api_key
 from autoincc_mcp.cache import CacheManager, cache_key
 from autoincc_mcp.client import APIClient
 
@@ -53,7 +55,8 @@ def validate_dates(data_inicio: date | None, data_fim: date | None) -> None:
         raise ValueError("data_fim cannot be prior to data_inicio")
 
 
-async def _get(path: str, params: dict, api_key: str | None) -> dict | list:
+async def _get(path: str, params: dict, ctx: Context | None) -> dict | list:
+    api_key = resolve_api_key(ctx)
     params = {
         k: v.isoformat() if isinstance(v, date) else v for k, v in params.items() if v is not None
     }
@@ -64,8 +67,8 @@ async def _get(path: str, params: dict, api_key: str | None) -> dict | list:
 
 
 @validate_call
-async def incc_latest(sigla: Sigla = "INCC-M", api_key: str | None = None) -> dict | list:
-    return await _get("/api/v1/incc/latest", {"sigla": sigla}, api_key)
+async def incc_latest(sigla: Sigla = "INCC-M", ctx: Context | None = None) -> dict | list:
+    return await _get("/api/v1/incc/latest", {"sigla": sigla}, ctx)
 
 
 @validate_call
@@ -75,7 +78,7 @@ async def incc_history(
     sigla: str | None = "INCC-M",
     skip: Offset = 0,
     limit: Limit = 100,
-    api_key: str | None = None,
+    ctx: Context | None = None,
 ) -> dict | list:
     validate_dates(data_inicio, data_fim)
     return await _get(
@@ -87,10 +90,10 @@ async def incc_history(
             "skip": skip,
             "limit": limit,
         },
-        api_key,
+        ctx,
     )
 
 
 @validate_call
-async def incc_metadata(api_key: str | None = None) -> dict | list:
-    return await _get("/api/v1/incc/metadata", {}, api_key)
+async def incc_metadata(ctx: Context | None = None) -> dict | list:
+    return await _get("/api/v1/incc/metadata", {}, ctx)

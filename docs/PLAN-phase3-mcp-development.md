@@ -35,7 +35,9 @@ Pacote independente `autoincc_mcp`, layout src/tools em dois tiers seguindo a re
 
 Configuração exclusivamente por ambiente: `AUTOINCC_BASE_URL` usa a constante `DEFAULT_GATEWAY_BASE_URL` (`http://api-gateway-kong:8000`), contrato interno de serviço; `AUTOINCC_CACHE_URL` é opcional, sem fallback de infraestrutura. `AUTOINCC_CACHE_TTL=300`, `AUTOINCC_TIMEOUT=30`, `AUTOINCC_RETRIES=3` (total de tentativas). `AUTOINCC_MCP_PORT=8080`, `AUTOINCC_MCP_HOST=0.0.0.0`, `AUTOINCC_MCP_TRANSPORT=streamable-http` (também SSE e stdio). GET `/sse` é SSE legado; POST `/sse` é Streamable HTTP; `/messages/` recebe mensagens SSE. FastMCP mantém defaults de segurança.
 
-BYOK por chamada, sem chave global e sem leitura de dotenv. Cache Redis usa `autoincc:` + impressão SHA-256 truncada + argumentos canônicos. O cache-aside exige callback confiável de autorização antes da leitura; sem callback, consulta o gateway em toda execução e não lê/escreve cache. Tools não instalam admissão fictícia: integração de `saas-gateway/MCP-Admission v1`, tenant/escopo, revogação e contabilização continuam gates de exposição. Fingerprint não substitui admissão.
+Em HTTP, a `X-API-KEY` é extraída do `Context` FastMCP e não aparece no schema das tools; em stdio, uma chave explícita continua disponível apenas para compatibilidade local. O cache usa apenas o digest da credencial e o upstream é o gateway autorizado.
+
+BYOK por requisição, sem chave global e sem leitura de dotenv. Cache Redis usa `autoincc:` + impressão SHA-256 truncada + argumentos canônicos. O cache é particionado pelo digest da credencial; a autorização do gateway ocorre no upstream antes de os dados serem reutilizados. Fingerprint não substitui admissão.
 
 Entrega inclui testes isolados e Dockerfiles; sem build Docker ou deployment. O responsável pela integração deve configurar URL/rotas autorizadas do gateway, cache dedicado, admissão antes de cache, rede/ingress e limites. Não alterar o Dockerfile existente da API. Testes locais não aprovam catálogo nem validam runtime.
 

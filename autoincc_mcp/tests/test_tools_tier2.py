@@ -1,8 +1,15 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from mcp.server.fastmcp import Context
 
 from autoincc_mcp.tools import tier_2
+
+
+def context_with_key(key: str):
+    request = SimpleNamespace(headers={"x-api-key": key})
+    return Context(request_context=SimpleNamespace(request=request))
 
 
 @pytest.mark.parametrize(
@@ -23,7 +30,7 @@ async def test_analytics(monkeypatch, name, arguments, path, params):
     client = AsyncMock()
     client.get.return_value = {"value": "1.2300"}
     monkeypatch.setattr(tier_2, "get_client", lambda: client)
-    result = await getattr(tier_2, name)(**arguments, api_key="fixture-key")
+    result = await getattr(tier_2, name)(**arguments, ctx=context_with_key("fixture-key"))
     assert result == client.get.return_value
     client.get.assert_awaited_once_with(path, params=params, api_key="fixture-key")
 
@@ -51,9 +58,9 @@ async def test_analytics_cache_partition(monkeypatch, name, args):
     cache.get_or_fetch.side_effect = fetch
     monkeypatch.setattr(tier_2, "get_client", lambda: client)
     monkeypatch.setattr(tier_2, "get_cache", lambda: cache)
-    await getattr(tier_2, name)(**args, api_key="fixture-key")
+    await getattr(tier_2, name)(**args, ctx=context_with_key("fixture-key"))
     first = cache.get_or_fetch.call_args.args[0]
-    await getattr(tier_2, name)(**args, api_key="other-key")
+    await getattr(tier_2, name)(**args, ctx=context_with_key("other-key"))
     assert first != cache.get_or_fetch.call_args.args[0]
     assert "fixture-key" not in first
 
@@ -69,7 +76,7 @@ async def test_correction_posts_decimal_body(monkeypatch):
         "sigla": "INCC-M",
     }
     assert (
-        await tier_2.incc_correction(**payload, api_key="fixture-key") == client.post.return_value
+        await tier_2.incc_correction(**payload, ctx=context_with_key("fixture-key")) == client.post.return_value
     )
     client.post.assert_awaited_once_with(
         "/api/v1/incc/correction", json=payload, api_key="fixture-key"
