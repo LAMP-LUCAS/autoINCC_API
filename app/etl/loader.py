@@ -17,6 +17,12 @@ from app.db.session import seed_default_dimensions
 
 logger = get_logger(__name__)
 
+# Faixa plausível do número-índice na escala oficial (base 100 = ago/1994):
+# série FGV ≈ 1.290 em 2026, crescendo ~6%/ano — 100_000 dá folga de >70 anos
+# e à série pré-base (valores em (0, 100)). Cadeias encadeadas desde fev/1944
+# chegam a ~1e18 (fator ≈ 8e14 acima do oficial, §4.1) e devem ser recusadas.
+MAX_INDICE_PLAUSIVEL = 100_000.0
+
 
 class INCCLoader:
     """Handles persistent storage and UPSERT operations for AutoINCC Star Schema."""
@@ -81,6 +87,20 @@ class INCCLoader:
         if df_fato.empty:
             logger.info("No FatoINCC records to upsert.")
             return 0
+
+        # Guard de sanidade §4.1: nunca persistir número-índice fora da faixa
+        # plausível — falhar em vez de gravar silenciosamente.
+        invalidos = df_fato[
+            df_fato["numero_indice"].isna()
+            | (df_fato["numero_indice"] <= 0)
+            | (df_fato["numero_indice"] > MAX_INDICE_PLAUSIVEL)
+        ]
+        if not invalidos.empty:
+            exemplo = invalidos["numero_indice"].iloc[0]
+            raise ValueError(
+                f"numero_indice fora da faixa plausível (0, {MAX_INDICE_PLAUSIVEL:g}]: "
+                f"{len(invalidos)} linha(s), ex. {exemplo!r} em {invalidos['data_id'].iloc[0]}"
+            )
 
         records: List[Dict[str, Any]] = df_fato.to_dict(orient="records")
         logger.info("Upserting %d records into fato_incc (dialect=%s)", len(records), self.dialect_name)

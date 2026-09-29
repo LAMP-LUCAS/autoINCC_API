@@ -162,9 +162,11 @@ class FatoINCC(Base):
         comment="12-month rolling accumulated variation as decimal",
     )
     numero_indice: Mapped[Decimal] = mapped_column(
-        Numeric(precision=28, scale=6),
+        # 38,15: escala oficial (base 100 = ago/1994) gera obs. pré-base < 1e-6
+        # (§4.1); 15 casas preservam razões históricas do incc_correction.
+        Numeric(precision=38, scale=15),
         nullable=False,
-        comment="Base 100 continuous chain index calculated via cumulative product",
+        comment="Base 100 continuous chain index calculated via cumulative product (official scale)",
     )
 
     created_at: Mapped[datetime] = mapped_column(

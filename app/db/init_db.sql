@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS fato_incc (
     variacao_mensal NUMERIC(10, 6) NOT NULL,
     variacao_ytd NUMERIC(10, 6),
     variacao_12m NUMERIC(10, 6),
-    numero_indice NUMERIC(28, 6) NOT NULL,
+    numero_indice NUMERIC(38, 15) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     PRIMARY KEY (data_id, categoria_id, cidade_id, tipo_id)

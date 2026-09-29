@@ -121,8 +121,11 @@ def test_calculate_incc_correction_endpoint(client: TestClient, seeded_incc_data
     data = response.json()
 
     assert data["valor_inicial"] == "100000.00"
-    assert data["indice_inicial"] == "100.300000"
-    assert data["indice_final"] == "101.407115"
+    # NUMERIC(38, 15) da escala oficial (§4.1): em SQLite (suíte) NUMERIC é
+    # guardado como float e o ruído binário aparece com scale>6 (em Postgres
+    # NUMERIC(38,15) é exato) — compara-se o valor, não o formato da string.
+    assert float(data["indice_inicial"]) == pytest.approx(100.3, rel=1e-9)
+    assert float(data["indice_final"]) == pytest.approx(101.407115, rel=1e-9)
 
     # Fator = 101.407115 / 100.300000 ~ 1.011038
     assert float(data["fator_correcao"]) == pytest.approx(1.011038, 1e-4)

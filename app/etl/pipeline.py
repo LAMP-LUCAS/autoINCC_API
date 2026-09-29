@@ -84,6 +84,7 @@ def run_etl_pipeline(
                     categoria_id=1,
                     cidade_id=1,
                     base_index=100.0,
+                    base_date=serie_info.get("base_date"),
                 )
 
                 # 3. Load / Upsert

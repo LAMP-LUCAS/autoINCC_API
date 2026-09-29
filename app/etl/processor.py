@@ -89,6 +89,7 @@ class INCCProcessor:
         df: pd.DataFrame,
         base_index: float = 100.0,
         initial_cumulative_factor: float = 1.0,
+        base_date: Optional[date] = None,
     ) -> pd.DataFrame:
         r"""Calculates continuous base-100 index, Year-to-Date (YTD), and 12-month rolling variations.
 
@@ -100,10 +101,20 @@ class INCCProcessor:
             3. variacao_12m:
                v_{12m, t} = \prod_{k=t-11}^{t} (1 + v_{m, k}) - 1
 
+        When ``base_date`` is given, the chain is rebased so that the index at
+        that date equals ``base_index`` (100) — matching the official published
+        scale (e.g. FGV INCC-M: base 100 = 01/08/1994). Observations before the
+        base date remain continuous (value = 100 * I_t / I_base, in (0, 100)),
+        so every ratio — and thus ``incc_correction`` — is scale-invariant and
+        preserved. If ``base_date`` is not present in the series a ValueError
+        is raised: silently persisting a different scale is exactly the
+        §4.1 defect.
+
         Args:
             df (pd.DataFrame): DataFrame with 'variacao_mensal', 'ano', 'mes' sorted chronologically.
             base_index (float): Starting base index value (default 100.0).
             initial_cumulative_factor (float): Multiplier for chaining new batches to past historical indexes.
+            base_date (Optional[date]): Date whose index must equal ``base_index`` (official scale).
 
         Returns:
             pd.DataFrame: Enriched DataFrame with 'numero_indice', 'variacao_ytd', 'variacao_12m'.
@@ -117,6 +128,19 @@ class INCCProcessor:
         # Step 2: Continuous chained index calculation via cumulative product
         cumulative_product = factor.cumprod() * initial_cumulative_factor
         df["numero_indice"] = base_index * cumulative_product
+
+        # Step 2b: Rebase to the official published scale (§4.1). Without this
+        # the chain anchored at series start (feb/1944 for INCC-M) yields
+        # indices ~1e18 — orders of magnitude above the official FGV series.
+        if base_date is not None:
+            ancora = df.loc[df["data_id"] == base_date, "numero_indice"]
+            if ancora.empty:
+                raise ValueError(
+                    f"base_date={base_date} ausente da série — recusando "
+                    "construir numero_indice em escala divergente da oficial"
+                )
+            fator_oficial = float(ancora.iloc[0])
+            df["numero_indice"] = base_index * (df["numero_indice"] / fator_oficial)
 
         # Step 3: Year-to-Date (YTD) variation grouped by calendar year
         # For each year, product of (1 + v_m) from Jan to current month minus 1
@@ -140,6 +164,7 @@ class INCCProcessor:
         cidade_id: int = 1,
         base_index: float = 100.0,
         initial_cumulative_factor: float = 1.0,
+        base_date: Optional[date] = None,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Main transformation pipeline for a series.
 
@@ -150,6 +175,8 @@ class INCCProcessor:
             cidade_id (int): Geography foreign key (default 1 = Nacional).
             base_index (float): Starting base for index.
             initial_cumulative_factor (float): Cumulative factor chaining.
+            base_date (Optional[date]): Data cujo número-índice deve valer
+                ``base_index`` (escala oficial publicada; ver calculate_metrics).
 
         Returns:
             Tuple[pd.DataFrame, pd.DataFrame]:
@@ -168,6 +195,7 @@ class INCCProcessor:
             df=df,
             base_index=base_index,
             initial_cumulative_factor=initial_cumulative_factor,
+            base_date=base_date,
         )
 
         # Add foreign key columns
@@ -196,7 +224,10 @@ class INCCProcessor:
         df_fato["variacao_ytd"] = df_fato["variacao_ytd"].astype(object).apply(lambda v: None if pd.isna(v) else round(float(v), 6))
         df_fato["variacao_12m"] = df_fato["variacao_12m"].astype(object).apply(lambda v: None if pd.isna(v) else round(float(v), 6))
         df_fato["variacao_mensal"] = df_fato["variacao_mensal"].apply(lambda v: round(float(v), 6))
-        df_fato["numero_indice"] = df_fato["numero_indice"].apply(lambda v: round(float(v), 6))
+        # 15 casas: na escala oficial (base 100 em ago/1994) as obs. pré-base
+        # ficam < 1e-6; arredondar a 6 casas as zeraria e quebraria razões
+        # históricas (incc_correction). Coluna NUMERIC(38, 15).
+        df_fato["numero_indice"] = df_fato["numero_indice"].apply(lambda v: round(float(v), 15))
 
         logger.info(
             "Successfully transformed %d records (tempo=%d, fato=%d) for tipo_id=%d",

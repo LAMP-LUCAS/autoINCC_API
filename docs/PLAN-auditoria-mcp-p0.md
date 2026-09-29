@@ -28,19 +28,42 @@ chama `process_series` para `tipo_id=1`.
 
 **Plano:**
 
-- [ ] **RED:** teste de regressão: `process_series` de amostra M com variações
+- [x] **RED:** teste de regressão: `process_series` de amostra M com variações
       oficiais deve produzir `numero_indice` em faixa plausível (ex.: 50–5000 para
       base 100 com ~82 anos — calibrar com a série real); hoje falha em 1e15.
-- [ ] **Fix:** corrigir o fator/base na origem (processor ou caller).
-- [ ] **REENG:** asserção de sanidade no loader (`app/etl/loader.py`):
+      → `tests/test_numero_indice_oficial.py` (fixture BCB SGS 192 completo,
+      991 obs) — RED por `TypeError(base_date)` + faixa; GREEN após fix.
+- [x] **Fix:** corrigir o fator/base na origem (processor ou caller).
+      → Causa-raiz refinada por evidência (a hipótese "fator 1e15 no código"
+      foi **refutada**: `numero_indice` reproduz a cadeia BCB fielmente, razão
+      1,0). O defeito é a **escolha da base**: cadeia desde fev/1944 (base 100)
+      gera ~1e18; a série oficial FGV (xlsx Sinduscon-PR) tem **base 100 =
+      01/08/1994**. Fix: `calculate_metrics(base_date=...)` rebasa a cadeia na
+      data-base oficial (`SERIES_MAP[192]`), mantendo razões invariante
+      (`incc_correction` intacto). `base_date` ausente → `ValueError` (nunca
+      escala divergente silenciosa). Arredondamento de `numero_indice` 6→15
+      casas (obs. pré-base < 1e-6 não podem ser zeradas).
+- [x] **REENG:** asserção de sanidade no loader (`app/etl/loader.py`):
       rejeitar/faillar carga com `numero_indice` fora de faixa — nunca persistir
-      silenciosamente.
-- [ ] **Reprocesso da série M:** backup do `fato_incc` antes; reprocessar;
+      silenciosamente. → guard `(0, 100_000]` antes do upsert +
+      `tests/test_loader_guard.py`.
+- [x] **Reprocesso da série M:** backup do `fato_incc` antes; reprocessar;
       conferir razões mês a mês (1,041586 do `incc_correction` como referência);
-      verificar `incc_latest/history/overview` e o campo `indice_inicial/final`
+      verificar `incc_history/overview` e o campo `indice_inicial/final`
       de `incc_correction` após o fix.
+      → Backup: `/mnt/ssd_serv_220G/backups/autoincc/fato_incc_pre_reprocesso_20260929.sql`
+      (1056 linhas, contém o dado pré-fix); migração de coluna
+      `fato_incc.numero_indice`: `NUMERIC(28,6)` → `NUMERIC(38,15)` (15 casas
+      preservam razões pré-1990; 23 dígitos inteiros cabem no legado);
+      reprocesso série 192 (991/991, 0 erros); verificação: âncora
+      1994-08 = 100.000000000000000 exato, jul/2026 = 1287.83 (oficial FGV
+      1283.035, +0,37%), razão 07/01 = **1.041586 idêntica**, 0 obs fora de
+      `(0, 100_000]`, DI intacta; gate da casa: **§4.1 OK** (7 obs, fora: 0).
 - [ ] P1 relacionado (adiado com o P1): §4.2 spread de meses diferentes;
       §4.3 `inicio_serie` do metadata; §4.4 `incc_stats` sem janela; §4.5 cai junto.
+      → Observação nova p/ P1: BCB SGS 7456 (INCC-DI) tem história desde
+      **01/09/1994** (306 obs), mas o banco tem só 32 (2024-01+) — carga
+      parcial provavelmente por `data_inicial=2024-01-01` (exemplo do README).
 
 ## Também registrado
 

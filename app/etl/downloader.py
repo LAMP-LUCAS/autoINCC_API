@@ -23,7 +23,10 @@ from app.etl.pacing import RequestPacer
 logger = get_logger(__name__)
 
 SERIES_MAP = {
-    192: {"sigla": "INCC-M", "tipo_id": 1},
+    # base_date: escala oficial publicada (FGV série histórica INCC-M começa
+    # em 100 em 01/08/1994). Sem isso a cadeia desde fev/1944 produz
+    # número-índice ~1e18 (defeito §4.1 da auditoria de custos).
+    192: {"sigla": "INCC-M", "tipo_id": 1, "base_date": date(1994, 8, 1)},
     7456: {"sigla": "INCC-DI", "tipo_id": 2},
 }
 
