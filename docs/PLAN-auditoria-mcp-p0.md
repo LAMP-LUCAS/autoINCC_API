@@ -89,3 +89,14 @@ chama `process_series` para `tipo_id=1`.
 
 - TDD (RED antes do fix), DDD do app (`app/etl` = camada de domínio de ingestão).
 - Nunca imprimir credencial; backup obrigatório antes de reprocessar (decisão 2026-09-29).
+
+---
+
+## STORY-MCP-007 — Certificação funcional (2026-09-30) · Onda 3 (CONCLUÍDA)
+
+- [x] **§X-01** número é JSON number: `app/core/numerico.py` (`Num`), 40 campos
+      de resposta migrados, `Decimal` preservado no cálculo/banco/ETL.
+      Documentado em `docs/autoINCC.md`; a descrição de `incc_correction`
+      declara a tipagem ao agente.
+- Contrato: `tests/test_api.py` passa a exigir `number` (o único assert que
+      travava a string). Suíte: 122 passed.
