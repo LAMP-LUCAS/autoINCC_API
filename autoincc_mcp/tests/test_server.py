@@ -28,6 +28,19 @@ async def test_registration():
     assert server.settings.port == 8080
 
 
+async def test_all_tools_have_one_liner_descriptions():
+    """§2.2 (auditoria MCP de custo): guard — nenhuma tool com descrição vazia.
+
+    A auditoria encontrou 19 descrições `""` no AutoSINAPI (o campo que o
+    agente lê na descoberta). Este guard impede regressão nesta superfície:
+    toda tool precisa de um one-liner legível (>= 10 chars úteis).
+    """
+    server = create_server()
+    for tool in await server.list_tools():
+        assert tool.description and tool.description.strip(), tool.name
+        assert len(tool.description.strip()) >= 10, tool.name
+
+
 def test_both_transports_route():
     app = create_http_app(create_server())
     for method in ("GET", "POST", "DELETE"):
