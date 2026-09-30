@@ -41,6 +41,27 @@ async def test_all_tools_have_one_liner_descriptions():
         assert len(tool.description.strip()) >= 10, tool.name
 
 
+async def test_exposes_resources_for_agents():
+    """§2.1 (auditoria MCP de custo): o servidor precisa expor MCP resources
+    legíveis por agente — a auditoria encontrou `resources: []` nos 3
+    servidores (sem schema, tabela de códigos nem referência metodológica).
+
+    Contrato: >=1 resource com name + descrição sintética (>=10 chars),
+    mimeType declarado e conteúdo legível (>=200 chars) no resources/read.
+    """
+    server = create_server()
+    resources = await server.list_resources()
+    assert resources, "§2.1: nenhum resource exposto"
+    for r in resources:
+        assert r.name and r.description and len(r.description.strip()) >= 10, r.uri
+        assert r.mimeType, r.uri
+    contents = await server.read_resource(resources[0].uri)
+    text = "".join(
+        c.content.decode() if isinstance(c.content, bytes) else c.content
+        for c in contents)
+    assert len(text) >= 200, "§2.1: conteúdo do resource muito curto"
+
+
 def test_both_transports_route():
     app = create_http_app(create_server())
     for method in ("GET", "POST", "DELETE"):
