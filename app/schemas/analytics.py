@@ -194,30 +194,54 @@ class INCCSeasonalityResponse(BaseModel):
     )
 
 
+class JanelaEstatistica(BaseModel):
+    """Janela temporal efetivamente agregada nas estatísticas (§4.4 — auditoria MCP de custo)."""
+
+    ano_inicio: int = Field(
+        ...,
+        description="Primeiro ano da janela aplicada (corte efetivo — pode ser anterior à primeira observação).",
+        examples=[2017],
+    )
+    ano_fim: int = Field(..., description="Último ano da janela aplicada.", examples=[2026])
+    padrao: bool = Field(
+        ...,
+        description=(
+            "True quando a janela PADRÃO foi aplicada: últimos 120 meses terminando "
+            "na última observação da série (requisição sem ano_inicio/ano_fim)."
+        ),
+        examples=[True],
+    )
+
+
 class INCCStatsResponse(BaseModel):
-    """Statistical summary metrics for a given series."""
+    """Statistical summary metrics for a given series within the applied window."""
 
     sigla: str = Field(..., description="Sigla da série analisada ('INCC-M' ou 'INCC-DI').", examples=["INCC-M"])
-    total_observacoes: int = Field(..., description="Total histórico de observações mensais catalogadas.", examples=[990])
-    data_inicio: date = Field(..., description="Data da primeira observação registrada na série.", examples=["1944-02-01"])
-    data_fim: date = Field(..., description="Data da última observação registrada na série.", examples=["2026-07-01"])
-    media_mensal_percentual: Decimal = Field(..., description="Média aritmética global das taxas mensais (%).", examples=[Decimal("4.0950")])
-    mediana_mensal_percentual: Decimal = Field(..., description="Mediana global das taxas mensais (%).", examples=[Decimal("1.0000")])
-    desvio_padrao_mensal_pontos: Decimal = Field(..., description="Desvio padrão amostral mensal em pontos percentuais (p.p.).", examples=[Decimal("8.5623")])
+    janela: JanelaEstatistica = Field(
+        ...,
+        description="Janela temporal agregada — o consumidor nunca precisa inferir o recorte (§4.4).",
+    )
+    total_observacoes: int = Field(..., description="Total de observações mensais dentro da janela consultada.", examples=[990])
+    data_inicio: date = Field(..., description="Data da primeira observação dentro da janela consultada.", examples=["1944-02-01"])
+    data_fim: date = Field(..., description="Data da última observação dentro da janela consultada.", examples=["2026-07-01"])
+    media_mensal_percentual: Decimal = Field(..., description="Média aritmética das taxas mensais da janela (%).", examples=[Decimal("4.0950")])
+    mediana_mensal_percentual: Decimal = Field(..., description="Mediana das taxas mensais da janela (%).", examples=[Decimal("1.0000")])
+    desvio_padrao_mensal_pontos: Decimal = Field(..., description="Desvio padrão amostral mensal da janela em pontos percentuais (p.p.).", examples=[Decimal("8.5623")])
     volatilidade_anualizada_percentual: Decimal = Field(
         ...,
-        description="Volatilidade anualizada calculada pela métrica padrão sigma * sqrt(12) (%).",
+        description="Volatilidade anualizada da janela calculada pela métrica padrão sigma * sqrt(12) (%).",
         examples=[Decimal("29.6608")],
     )
-    recorde_alta_percentual: Decimal = Field(..., description="Maior taxa de variação mensal registrada em toda a história (%).", examples=[Decimal("78.4100")])
-    recorde_alta_data: date = Field(..., description="Data exata em que ocorreu o recorde de alta.", examples=["1990-03-01"])
-    recorde_baixa_percentual: Decimal = Field(..., description="Menor taxa de variação mensal registrada em toda a história (%).", examples=[Decimal("-4.4200")])
-    recorde_baixa_data: date = Field(..., description="Data exata em que ocorreu o recorde de baixa.", examples=["1945-01-01"])
+    recorde_alta_percentual: Decimal = Field(..., description="Maior taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("78.4100")])
+    recorde_alta_data: date = Field(..., description="Data exata em que ocorreu o recorde de alta na janela.", examples=["1990-03-01"])
+    recorde_baixa_percentual: Decimal = Field(..., description="Menor taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("-4.4200")])
+    recorde_baixa_data: date = Field(..., description="Data exata em que ocorreu o recorde de baixa na janela.", examples=["1945-01-01"])
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "sigla": "INCC-M",
+                "janela": {"ano_inicio": 1944, "ano_fim": 2026, "padrao": False},
                 "total_observacoes": 990,
                 "data_inicio": "1944-02-01",
                 "data_fim": "2026-07-01",

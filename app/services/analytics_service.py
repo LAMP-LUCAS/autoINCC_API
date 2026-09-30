@@ -22,6 +22,7 @@ from app.schemas.analytics import (
     INCCSeasonalityResponse,
     INCCSeriesMetadataItem,
     INCCStatsResponse,
+    JanelaEstatistica,
 )
 
 logger = get_logger(__name__)
@@ -371,15 +372,30 @@ class AnalyticsService:
         )
 
     @classmethod
-    def get_series_statistics(cls, db: Session, sigla: str = "INCC-M") -> Optional[INCCStatsResponse]:
-        """Calculates global statistical summary metrics for an index variant.
+    def get_series_statistics(
+        cls,
+        db: Session,
+        sigla: str = "INCC-M",
+        ano_inicio: Optional[int] = None,
+        ano_fim: Optional[int] = None,
+    ) -> Optional[INCCStatsResponse]:
+        """Calculates statistical summary metrics for an index variant.
+
+        §4.4 (auditoria MCP de custo): a agregação aceita **janela** —
+        `ano_inicio`/`ano_fim` (anos civis, inclusive) restringem a série;
+        sem parâmetros aplica-se o default de **120 meses** terminando na
+        última observação da série. O payload expõe a janela aplicada
+        (`janela`), para o consumidor nunca inferir o recorte. `None` quando
+        nenhuma observação cai na janela (a rota responde 404).
 
         Args:
             db (Session): Database session.
             sigla (str): Index variant ('INCC-M' or 'INCC-DI').
+            ano_inicio (Optional[int]): First year of the window (inclusive).
+            ano_fim (Optional[int]): Last year of the window (inclusive).
 
         Returns:
-            Optional[INCCStatsResponse]: Statistical summary or None.
+            Optional[INCCStatsResponse]: Windowed summary or None.
         """
         sigla_upper = sigla.upper()
         query = (
@@ -393,8 +409,28 @@ class AnalyticsService:
         if not rows:
             return None
 
-        rates = [float(r.variacao_mensal) * 100.0 for r in rows]
-        dates = [r.data_id for r in rows]
+        # Recorte (§4.4): janela explícita por ano civil, ou default 120 meses.
+        padrao = ano_inicio is None and ano_fim is None
+        if padrao:
+            d_last = rows[-1].data_id
+            start_month = d_last.year * 12 + (d_last.month - 1) - 119
+            j_start = date(start_month // 12, start_month % 12 + 1, 1)
+            j_ano_inicio = j_start.year
+            j_ano_fim = d_last.year
+            window = [r for r in rows if r.data_id >= j_start]
+        else:
+            anos = [r.data_id.year for r in rows]
+            j_ano_inicio = ano_inicio if ano_inicio is not None else min(anos)
+            j_ano_fim = ano_fim if ano_fim is not None else max(anos)
+            window = [
+                r for r in rows if j_ano_inicio <= r.data_id.year <= j_ano_fim
+            ]
+
+        if not window:
+            return None
+
+        rates = [float(r.variacao_mensal) * 100.0 for r in window]
+        dates = [r.data_id for r in window]
         arr = np.array(rates)
 
         total_obs = len(arr)
@@ -412,6 +448,9 @@ class AnalyticsService:
 
         return INCCStatsResponse(
             sigla=sigla_upper,
+            janela=JanelaEstatistica(
+                ano_inicio=j_ano_inicio, ano_fim=j_ano_fim, padrao=padrao
+            ),
             total_observacoes=total_obs,
             data_inicio=d_start,
             data_fim=d_end,

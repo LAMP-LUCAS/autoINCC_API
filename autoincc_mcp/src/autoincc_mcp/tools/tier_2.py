@@ -79,5 +79,16 @@ async def incc_seasonality(sigla: Sigla = "INCC-M", ctx: Context | None = None) 
 
 
 @validate_call
-async def incc_stats(sigla: Sigla = "INCC-M", ctx: Context | None = None) -> dict | list:
-    return await _get("/api/v1/incc/analytics/stats", {"sigla": sigla}, ctx)
+async def incc_stats(
+    sigla: Sigla = "INCC-M",
+    ano_inicio: int | None = None,
+    ano_fim: int | None = None,
+    ctx: Context | None = None,
+) -> dict | list:
+    """Estatísticas agregadas da série com janela (§4.4): default de 120 meses;
+    `ano_inicio`/`ano_fim` restringem por ano civil e a resposta expõe `janela`."""
+    return await _get(
+        "/api/v1/incc/analytics/stats",
+        {"sigla": sigla, "ano_inicio": ano_inicio, "ano_fim": ano_fim},
+        ctx,
+    )

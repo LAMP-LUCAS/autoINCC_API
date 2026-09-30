@@ -24,6 +24,12 @@ def context_with_key(key: str):
             {"sigla": "INCC-DI"},
         ),
         ("incc_stats", {}, "/api/v1/incc/analytics/stats", {"sigla": "INCC-M"}),
+        (
+            "incc_stats",
+            {"ano_inicio": 2020, "ano_fim": 2024},
+            "/api/v1/incc/analytics/stats",
+            {"sigla": "INCC-M", "ano_inicio": 2020, "ano_fim": 2024},
+        ),
     ],
 )
 async def test_analytics(monkeypatch, name, arguments, path, params):

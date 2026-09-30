@@ -103,6 +103,41 @@ def test_get_series_statistics_success(client: TestClient, multi_month_seeded_da
     assert data["recorde_baixa_data"] == "2024-01-01"
 
 
+def test_get_series_statistics_janela_exposta(
+    client: TestClient, multi_month_seeded_data: None
+) -> None:
+    """§4.4: payload expõe a janela usada; sem parâmetros, default de 120 meses."""
+    response = client.get("/api/v1/incc/analytics/stats?sigla=INCC-M")
+    assert response.status_code == 200
+    janela = response.json()["janela"]  # KeyError → RED
+    assert janela["padrao"] is True
+    assert janela["ano_inicio"] == 2014  # 2024-06 − 119 meses
+    assert janela["ano_fim"] == 2024
+
+
+def test_get_series_statistics_aceita_janela_e_valida(
+    client: TestClient, multi_month_seeded_data: None
+) -> None:
+    """§4.4: ano_inicio/ano_fim aceitos, refletidos; 404 sem dado; 422 invertida."""
+    ok = client.get(
+        "/api/v1/incc/analytics/stats?sigla=INCC-M&ano_inicio=2024&ano_fim=2024"
+    )
+    assert ok.status_code == 200
+    data = ok.json()
+    assert data["total_observacoes"] == 6
+    assert data["janela"] == {"ano_inicio": 2024, "ano_fim": 2024, "padrao": False}
+
+    vazio = client.get(
+        "/api/v1/incc/analytics/stats?sigla=INCC-M&ano_inicio=2020&ano_fim=2023"
+    )
+    assert vazio.status_code == 404
+
+    invertida = client.get(
+        "/api/v1/incc/analytics/stats?sigla=INCC-M&ano_inicio=2025&ano_fim=2020"
+    )
+    assert invertida.status_code == 422
+
+
 def test_get_series_metadata_endpoint(client: TestClient) -> None:
     """Verifies /incc/metadata returns technical catalog and governance notes."""
     response = client.get("/api/v1/incc/metadata")

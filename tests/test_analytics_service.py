@@ -96,6 +96,41 @@ def test_get_series_statistics(db_session: Session, multi_month_seeded_data: Non
     assert stats.recorde_baixa_data == date(2024, 1, 1)
 
 
+def test_get_series_statistics_janela_padrao_120_meses(
+    db_session: Session, multi_month_seeded_data: None
+) -> None:
+    """§4.4 (auditoria MCP custo): default = janela de 120 meses, exposta no payload."""
+    stats = AnalyticsService.get_series_statistics(db_session, sigla="INCC-M")
+    assert stats is not None
+    # payload precisa expor a janela aplicada (RED até schema/service suportarem)
+    assert stats.janela.padrao is True
+    # série 2024-01..2024-06 cabe na janela de 120 meses terminando em 2024-06
+    assert stats.janela.ano_inicio == 2014  # 2024-06 − 119 meses
+    assert stats.janela.ano_fim == 2024
+    assert stats.total_observacoes == 6
+
+
+def test_get_series_statistics_janela_explícita_filtra_por_ano(
+    db_session: Session, multi_month_seeded_data: None
+) -> None:
+    """§4.4: ano_inicio/ano_fim restringem a agregação ao intervalo pedido."""
+    # toda a série vive em 2024 → janela encerrada em 2023 não agrega nada
+    assert (
+        AnalyticsService.get_series_statistics(
+            db_session, sigla="INCC-M", ano_inicio=2020, ano_fim=2023
+        )
+        is None
+    )
+    stats = AnalyticsService.get_series_statistics(
+        db_session, sigla="INCC-M", ano_inicio=2024, ano_fim=2024
+    )
+    assert stats is not None
+    assert stats.total_observacoes == 6
+    assert stats.janela.ano_inicio == 2024
+    assert stats.janela.ano_fim == 2024
+    assert stats.janela.padrao is False
+
+
 def test_get_series_metadata(db_session) -> None:
     """Verifies technical series metadata retrieval."""
     meta = AnalyticsService.get_series_metadata(db_session)

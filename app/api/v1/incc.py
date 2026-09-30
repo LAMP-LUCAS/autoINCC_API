@@ -568,28 +568,31 @@ def get_seasonality_analysis(
     },
     description="""
 ### 🎯 O que resolve
-Oferece um panorama estatístico abrangente de toda a série histórica, permitindo mensurar a dispersão dos custos da construção, a volatilidade anualizada e os marcos de estresse inflacionário da economia brasileira.
+Oferece um panorama estatístico da janela consultada — dispersão dos custos da construção, volatilidade anualizada e marcos de estresse inflacionário —, com a janela **explicitada no payload** (§4.4 da auditoria MCP de custo). Sem parâmetros de janela, agrega os **últimos 120 meses** terminando na última observação da série; a série completa fica disponível via `ano_inicio`/`ano_fim` explícitos.
 
 ### 📥 Parâmetros de Entrada
 - **`sigla`** *(string, opcional, padrão: `INCC-M`)*:
   Variante do índice a ser avaliada (`INCC-M` ou `INCC-DI`).
+- **`ano_inicio`** *(integer, opcional)*: Primeiro ano da janela (inclusive, 1900–2200). Sem parâmetros, aplica-se o default de 120 meses.
+- **`ano_fim`** *(integer, opcional)*: Último ano da janela (inclusive). Padrão: ano da última observação da série. `ano_inicio > ano_fim` responde 422; janela sem dado responde 404.
 
 ### 📤 O que é retornado
 Objeto `INCCStatsResponse` contendo:
-- `total_observacoes`: Quantidade total de observações mensais no banco.
-- `data_inicio` e `data_fim`: Intervalo cronológico total coberto.
+- `janela`: Janela temporal efetivamente agregada — `ano_inicio`, `ano_fim` e `padrao` (true = default de 120 meses aplicado).
+- `total_observacoes`: Quantidade de observações mensais **dentro da janela**.
+- `data_inicio` e `data_fim`: Intervalo cronológico coberto pelas observações da janela.
 - `media_mensal_percentual` e `mediana_mensal_percentual`: Medidas de tendência central.
 - `desvio_padrao_mensal_pontos`: Desvio padrão amostral mensal.
 - `volatilidade_anualizada_percentual`: Volatilidade anualizada calculada pela métrica padrão da econometria $\\sigma \\times \\sqrt{12}$.
-- `recorde_alta_percentual` e `recorde_alta_data`: Maior taxa registrada na história e sua data de ocorrência (ex: 78,41% em Março/1990).
-- `recorde_baixa_percentual` e `recorde_baixa_data`: Menor taxa registrada na história e sua data de ocorrência.
+- `recorde_alta_percentual` e `recorde_alta_data`: Maior taxa registrada **na janela** e sua data de ocorrência (ex.: série completa, 78,41% em Março/1990).
+- `recorde_baixa_percentual` e `recorde_baixa_data`: Menor taxa registrada na janela e sua data de ocorrência.
 
 ### 💡 Aplicação Prática no Setor AEC
 - **Gestão de Risco e Seguros de Engenharia:** Parametrização de modelos de estresse (stress testing) e cálculo de prêmios de seguro de risco de engenharia e garantias contratuais.
 - **Modelagem de Monte Carlo:** Alimentação de premissas estocásticas de volatilidade de custos para estudos de viabilidade econômica de empreendimentos de longo prazo.
 
 ### ⚡ Estratégia de Cache e Resiliência
-- **Chave Redis:** `incc:stats:{sigla}`
+- **Chave Redis:** `incc:stats:{sigla}:{ano_inicio}-{ano_fim}` (`auto` quando ausente)
 - **TTL:** 86.400 segundos (24 horas).
 """,
 )
@@ -600,21 +603,53 @@ def get_series_statistics(
         pattern="^(?i)(INCC-M|INCC-DI)$",
         examples=["INCC-M"],
     ),
+    ano_inicio: Optional[int] = Query(
+        default=None,
+        ge=1900,
+        le=2200,
+        description=(
+            "Primeiro ano da janela (inclusive). Sem parâmetros, aplica-se o "
+            "default de 120 meses terminando na última observação da série (§4.4)."
+        ),
+        examples=[2017],
+    ),
+    ano_fim: Optional[int] = Query(
+        default=None,
+        ge=1900,
+        le=2200,
+        description=(
+            "Último ano da janela (inclusive). Padrão: ano da última "
+            "observação da série."
+        ),
+        examples=[2026],
+    ),
     db: Session = Depends(get_db),
 ) -> INCCStatsResponse:
-    """Statistical summary metrics, annualized volatility, and historical records."""
+    """Statistical summary metrics within the applied window (default: 120 months)."""
     sigla_upper = sigla.upper()
-    cache_key = f"incc:stats:{sigla_upper}"
+    if ano_inicio is not None and ano_fim is not None and ano_inicio > ano_fim:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="ano_inicio não pode ser posterior a ano_fim.",
+        )
+    cache_key = (
+        f"incc:stats:{sigla_upper}:{ano_inicio or 'auto'}-{ano_fim or 'auto'}"
+    )
 
     cached = get_cache(cache_key)
     if cached:
         return INCCStatsResponse(**cached)
 
-    stats_data = AnalyticsService.get_series_statistics(db=db, sigla=sigla_upper)
+    stats_data = AnalyticsService.get_series_statistics(
+        db=db, sigla=sigla_upper, ano_inicio=ano_inicio, ano_fim=ano_fim
+    )
     if not stats_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No observations found for index '{sigla_upper}' to compute statistics.",
+            detail=(
+                f"No observations found for index '{sigla_upper}' within the "
+                "requested window to compute statistics."
+            ),
         )
 
     set_cache(cache_key, stats_data.model_dump(mode="json"), ttl_seconds=86400)
