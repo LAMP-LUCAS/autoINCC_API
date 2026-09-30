@@ -69,8 +69,14 @@ chama `process_series` para `tipo_id=1`.
       (recomendação da auditoria; nota: 7456 tem 306 obs desde 01/09/1994,
       banco tem só 32 desde 2024-01 — carga total fica p/ P2, a carga parcial
       agora é declarada). Gate: **§4.3 OK** (2 séries conferidas).
-- [ ] P1/P2 adiados: §4.4 `incc_stats` sem janela; §4.5 cai junto (fora do
-      gate P1 aprovado; planejar no próximo ciclo).
+- [x] **Fase 5 (P2, 2026-09-30):** §4.4 `incc_stats` com janela
+      `ano_inicio/ano_fim` (default 120 meses, janela declarada no payload —
+      `c31d225`; gate `padrao=2016..2026 obs=120 | expl=2020..2024 obs=60`);
+      §4.5 vazamento de índice **GREEN** via claim-garda
+      `claim_indice_leak` (resolvido pelo fix do §4.1 — gate 18/18);
+      §2.2 guard de descrições (`c7d0836`: 8/8, vazias=0); §2.1 MCP
+      resources `autoincc://guia/series` + `autoincc://guia/uso` (`723fcc5`)
+      — suíte **122 passed**; gate 28/28.
 
 ## Também registrado
 
