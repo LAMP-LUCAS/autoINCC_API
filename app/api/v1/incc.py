@@ -642,6 +642,8 @@ Objeto `INCCMetadataResponse` contendo:
   - `fonte_primaria`: FGV IBRE / Banco Central do Brasil.
   - `instituto_responsavel`: Fundação Getulio Vargas (FGV IBRE).
   - `janela_coleta`: Período exato de apuração (21 do mês anterior ao dia 20 vs mês civil).
+  - `inicio_serie`: Ano da primeira observação efetivamente armazenada (derivado dos dados, nunca constante — §4.3 da auditoria).
+  - `observacoes_disponiveis`: Quantidade real de observações armazenadas por série.
   - `metodologia`: Resumo metodológico e distribuição de pesos.
 - `notas_metodologicas`: Registro de marcos históricos e revisões metodológicas estruturais (como a grande revisão da FGV em Julho de 2023, introduzindo três padrões construtivos).
 
@@ -653,14 +655,14 @@ Objeto `INCCMetadataResponse` contendo:
 - **TTL:** 86.400 segundos (24 horas).
 """,
 )
-def get_series_metadata() -> INCCMetadataResponse:
+def get_series_metadata(db: Session = Depends(get_db)) -> INCCMetadataResponse:
     """Catalog metadata and governance documentation for the AutoINCC series."""
     cache_key = "incc:metadata"
     cached = get_cache(cache_key)
     if cached:
         return INCCMetadataResponse(**cached)
 
-    metadata = AnalyticsService.get_series_metadata()
+    metadata = AnalyticsService.get_series_metadata(db)
     set_cache(cache_key, metadata.model_dump(mode="json"), ttl_seconds=86400)
     return metadata
 

@@ -244,7 +244,17 @@ class INCCSeriesMetadataItem(BaseModel):
     instituto_responsavel: str = Field(..., description="Instituto técnico responsável pelo cálculo e metodologia.", examples=["Fundação Getulio Vargas (FGV IBRE)"])
     janela_coleta: str = Field(..., description="Janela temporal de pesquisa de preços no mês calendário.", examples=["Do dia 21 do mês anterior ao dia 20 do mês de referência"])
     periodicidade: str = Field(..., description="Periodicidade de apuração e publicação oficial.", examples=["Mensal"])
-    inicio_serie: str = Field(..., description="Ano de início da série histórica.", examples=["1944"])
+    inicio_serie: str = Field(
+        ...,
+        description="Ano da PRIMEIRA observação efetivamente armazenada para a série "
+                    "(derivado dos dados, nunca constante; '' quando não há dado).",
+        examples=["1944"],
+    )
+    observacoes_disponiveis: int = Field(
+        default=0,
+        description="Quantidade de observações efetivamente armazenadas para a série.",
+        examples=[991],
+    )
     metodologia: str = Field(..., description="Resumo da metodologia, abrangência geográfica e estrutura de ponderação.")
 
 
@@ -267,6 +277,7 @@ class INCCMetadataResponse(BaseModel):
                         "janela_coleta": "Do dia 21 do mês anterior ao dia 20 do mês de referência",
                         "periodicidade": "Mensal",
                         "inicio_serie": "1944",
+                        "observacoes_disponiveis": 991,
                         "metodologia": "Mede a evolução dos custos de construções habitacionais em 7 capitais.",
                     }
                 ],

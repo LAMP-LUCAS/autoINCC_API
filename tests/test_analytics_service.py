@@ -96,9 +96,9 @@ def test_get_series_statistics(db_session: Session, multi_month_seeded_data: Non
     assert stats.recorde_baixa_data == date(2024, 1, 1)
 
 
-def test_get_series_metadata() -> None:
+def test_get_series_metadata(db_session) -> None:
     """Verifies technical series metadata retrieval."""
-    meta = AnalyticsService.get_series_metadata()
+    meta = AnalyticsService.get_series_metadata(db_session)
     assert len(meta.series) == 2
     assert meta.series[0].sigla == "INCC-M"
     assert meta.series[0].codigo_bcb == 192

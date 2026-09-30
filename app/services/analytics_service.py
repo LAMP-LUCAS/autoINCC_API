@@ -426,8 +426,14 @@ class AnalyticsService:
         )
 
     @classmethod
-    def get_series_metadata(cls) -> INCCMetadataResponse:
-        """Returns official technical catalog, survey windows and methodological notes."""
+    def get_series_metadata(cls, db: Session) -> INCCMetadataResponse:
+        """Returns official technical catalog, survey windows and methodological notes.
+
+        §4.3 (auditoria): `inicio_serie` é DERIVADO da primeira observação
+        efetivamente armazenada — nunca constante. Metadata que não
+        corresponde aos dados é pior que metadata ausente. Também expõe
+        `observacoes_disponiveis` (contagem real por série).
+        """
         series_items = [
             INCCSeriesMetadataItem(
                 sigla="INCC-M",
@@ -437,7 +443,7 @@ class AnalyticsService:
                 instituto_responsavel="Fundação Getulio Vargas (FGV IBRE)",
                 janela_coleta="Do dia 21 do mês anterior ao dia 20 do mês de referência",
                 periodicidade="Mensal",
-                inicio_serie="1944",
+                inicio_serie="",  # §4.3: preenchido abaixo a partir do dado armazenado
                 metodologia=(
                     "Mede a evolução dos custos de construções habitacionais em 7 capitais "
                     "(SP, RJ, BH, POA, Salvador, Recife, Brasília). Abrange Materiais e Equipamentos, "
@@ -452,7 +458,7 @@ class AnalyticsService:
                 instituto_responsavel="Fundação Getulio Vargas (FGV IBRE)",
                 janela_coleta="Do primeiro ao último dia do mês civil de referência",
                 periodicidade="Mensal",
-                inicio_serie="1944",
+                inicio_serie="",  # §4.3: preenchido abaixo a partir do dado armazenado
                 metodologia=(
                     "Subíndice do IGP-DI. Mede a variação de custos no mês calendário fechado. "
                     "Utilizado em balanços corporativos, análises contábeis e liquidações contratuais."
@@ -468,5 +474,26 @@ class AnalyticsService:
             "pelo produtório exato das variações mensais oficiais publicadas pelo Banco Central.",
             "Integridade de Dados: O AutoINCC aplica UPSERT idempotente e auditoria em todas as coletas.",
         ]
+
+        # §4.3: janela real armazenada por sigla (primeira observação + contagem)
+        janelas: dict[str, tuple[str, int]] = {}
+        rows = db.execute(
+            select(
+                DimTipoIndice.sigla,
+                func.min(FatoINCC.data_id),
+                func.count(),
+            )
+            .join(DimTipoIndice, FatoINCC.tipo_id == DimTipoIndice.tipo_id)
+            .group_by(DimTipoIndice.sigla)
+        ).all()
+        for sigla, primeiro, total in rows:
+            janelas[str(sigla).upper()] = (
+                str(primeiro.year) if primeiro else "",
+                int(total or 0),
+            )
+        for item in series_items:
+            inicio, total = janelas.get(item.sigla.upper(), ("", 0))
+            item.inicio_serie = inicio
+            item.observacoes_disponiveis = total
 
         return INCCMetadataResponse(series=series_items, notas_metodologicas=notas)

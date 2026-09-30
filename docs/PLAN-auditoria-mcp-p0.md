@@ -59,11 +59,18 @@ chama `process_series` para `tipo_id=1`.
       1994-08 = 100.000000000000000 exato, jul/2026 = 1287.83 (oficial FGV
       1283.035, +0,37%), razão 07/01 = **1.041586 idêntica**, 0 obs fora de
       `(0, 100_000]`, DI intacta; gate da casa: **§4.1 OK** (7 obs, fora: 0).
-- [ ] P1 relacionado (adiado com o P1): §4.2 spread de meses diferentes;
-      §4.3 `inicio_serie` do metadata; §4.4 `incc_stats` sem janela; §4.5 cai junto.
-      → Observação nova p/ P1: BCB SGS 7456 (INCC-DI) tem história desde
-      **01/09/1994** (306 obs), mas o banco tem só 32 (2024-01+) — carga
-      parcial provavelmente por `data_inicial=2024-01-01` (exemplo do README).
+- [x] **P1 §4.2 spread de meses iguais** → GREEN incidental pós-reprocesso §4.1
+      (M e DI ambas em 2026-08, spread=-0,19; gate OK).
+- [x] **P1 §4.3 `inicio_serie` do metadata** (2026-09-30) — RED
+      `tests/test_metadata_inicio_serie.py`: INCC-DI declarava `1944` por
+      CONSTANTE sem dado em 1944 (carga parcial `data_inicial=2024-01-01`;
+      o oficial do SGS 7456 começa 01/09/**1994**). Fix: `inicio_serie`
+      derivado da primeira observação armazenada + `observacoes_disponiveis`
+      (recomendação da auditoria; nota: 7456 tem 306 obs desde 01/09/1994,
+      banco tem só 32 desde 2024-01 — carga total fica p/ P2, a carga parcial
+      agora é declarada). Gate: **§4.3 OK** (2 séries conferidas).
+- [ ] P1/P2 adiados: §4.4 `incc_stats` sem janela; §4.5 cai junto (fora do
+      gate P1 aprovado; planejar no próximo ciclo).
 
 ## Também registrado
 
