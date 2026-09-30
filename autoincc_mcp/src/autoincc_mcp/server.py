@@ -16,7 +16,7 @@ from autoincc_mcp.tools import tier_1, tier_2
 TOOLS = (
     (tier_1.incc_latest, "Índice INCC recente, fonte, taxas e referência temporal."),
     (tier_1.incc_history, "Série histórica INCC paginada por datas e variante."),
-    (tier_2.incc_correction, "Correção monetária em reais via REST, sem persistência."),
+    (tier_2.incc_correction, "Correção monetária em reais via REST, sem persistência. **Tipagem (ADR 009):** todo valor numérico da resposta é JSON number (float), nunca string; `data_inicio_utilizada`/`data_fim_utilizada` são string ISO."),
     (tier_2.incc_overview, "Panorama consolidado das variantes INCC-M e INCC-DI."),
     (tier_2.incc_compare, "Comparação histórica paginada de INCC-M e INCC-DI."),
     (tier_2.incc_seasonality, "Sazonalidade histórica da variante INCC."),

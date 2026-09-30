@@ -120,19 +120,22 @@ def test_calculate_incc_correction_endpoint(client: TestClient, seeded_incc_data
     assert response.status_code == 200
     data = response.json()
 
-    assert data["valor_inicial"] == "100000.00"
+    # STORY-MCP-007/X-01 (ADR 009): valor numérico é JSON number, não string.
+    # Antes: "100000.00" (Decimal serializado como str pelo Pydantic v2).
+    assert isinstance(data["valor_inicial"], (int, float))
+    assert data["valor_inicial"] == pytest.approx(100000.00)
     # NUMERIC(38, 15) da escala oficial (§4.1): em SQLite (suíte) NUMERIC é
     # guardado como float e o ruído binário aparece com scale>6 (em Postgres
     # NUMERIC(38,15) é exato) — compara-se o valor, não o formato da string.
-    assert float(data["indice_inicial"]) == pytest.approx(100.3, rel=1e-9)
-    assert float(data["indice_final"]) == pytest.approx(101.407115, rel=1e-9)
+    assert data["indice_inicial"] == pytest.approx(100.3, rel=1e-9)
+    assert data["indice_final"] == pytest.approx(101.407115, rel=1e-9)
 
     # Fator = 101.407115 / 100.300000 ~ 1.011038
-    assert float(data["fator_correcao"]) == pytest.approx(1.011038, 1e-4)
+    assert data["fator_correcao"] == pytest.approx(1.011038, 1e-4)
     # Valor corrigido ~ 101103.80
-    assert float(data["valor_corrigido"]) == pytest.approx(101103.80, 0.1)
+    assert data["valor_corrigido"] == pytest.approx(101103.80, 0.1)
     # Variação acumulada ~ 1.1038%
-    assert float(data["variacao_acumulada_percentual"]) == pytest.approx(1.1038, 1e-2)
+    assert data["variacao_acumulada_percentual"] == pytest.approx(1.1038, 1e-2)
 
 
 def test_trigger_etl_unauthorized(client: TestClient) -> None:

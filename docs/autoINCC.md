@@ -119,3 +119,34 @@ Quarto, a **estratégia de monetização deve ser clara, transparente e progress
 Por fim, o projeto deve manter um olho voltado para o **futuro e para a integração com o ecossistema mais amplo**. A integração com o AutoSINAPI não deve ser vista como uma fase opcional, mas como um objetivo estratégico de médio a longo prazo. Trabalhar na criação de uma "API de fusão" que consiga consumir e correlacionar dados de ambos os sistemas é o verdadeiro diferencial competitivo que pode posicionar o AutoINCC como a infraestrutura de dados definitiva para a construção civil no Brasil . Além disso, o projeto deve explorar ativamente integrações com outras ferramentas relevantes para o AEC, como plataformas de BIM, sistemas de gestão de projetos e ERPs. Criar "adaptadores" ou "conectores" para plataformas populares pode aumentar drasticamente a utilidade do produto e abrir novas linhas de receita através de parcerias. A participação em comunidades AEC, como a OpenAEC Foundation, e a apresentação em conferências do setor ajudarão a posicionar o projeto como uma iniciativa líder e a atrair parceiros estratégicos [[79]].
 
 Em síntese, o potencial do AutoINCC é substancial. Ele aborda uma necessidade real e urgente de dados de custos estruturados no setor AEC brasileiro. A arquitetura proposta é robusta e moderna, o modelo de monetização é viável e o alinhamento com as tendências de digitalização e interoperabilidade é excelente. O sucesso, no entanto, não é garantido e dependerá da execução meticulosa. Ao seguir uma estratégia de lançamento gradual, focar obsessivamente na qualidade e transparência dos dados, construir ativamente uma comunidade e manter um olhar estratégico para a integração e o crescimento, o AutoINCC tem tudo para se tornar um pilar fundamental em um ecossistema de dados mais conectado e eficiente para a construção civil brasileira.
+
+---
+
+## Tipagem da resposta: número é `number` (ADR 009)
+
+**Regra (2026-09-30):** todo valor numérico das respostas sai como **JSON
+number** (`float`), nunca string. Datas continuam string ISO.
+
+```json
+{
+  "valor_inicial": 250000.0,
+  "valor_corrigido": 277389.36,
+  "fator_correcao": 1.109557,
+  "variacao_acumulada_percentual": 10.9557,
+  "indice_inicial": 1168.3279037124057,
+  "indice_final": 1296.3269146287025,
+  "data_inicio_utilizada": "2025-08-01"
+}
+```
+
+> Antes os mesmos campos vinham como `"250000.00"`, `"1168.327903712405700"`.
+> O cálculo continua em `Decimal` (fator de correção e índice oficial exigem
+> precisão); a conversão acontece **só** na fronteira JSON, pelo tipo `Num`
+> (`app/core/numerico.py`).
+
+**Por quê:** consumidor tipado (agente, planilha, OpenAPI strict) quebrava ou
+falhava em silêncio ao receber texto no lugar de número.
+
+**Escopo:** 40 campos de resposta migrados (schemas de `incc.py` e
+`analytics.py`). O banco permanece `NUMERIC`; a ETL permanece `Decimal`.
+

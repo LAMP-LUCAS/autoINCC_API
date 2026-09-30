@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from app.core.numerico import Num  # ADR 009
 
 
 class INCCRecordResponse(BaseModel):
@@ -19,37 +20,37 @@ class INCCRecordResponse(BaseModel):
     nome_mes: str = Field(..., description="Nome do mês em português brasileiro.", examples=["Junho"])
     sigla: str = Field(..., description="Sigla da variante do índice ('INCC-M' ou 'INCC-DI').", examples=["INCC-M"])
     fonte: str = Field(..., description="Órgão ou provedor primário dos dados.", examples=["FGV / BCB SGS"])
-    variacao_mensal: Decimal = Field(
+    variacao_mensal: Num = Field(
         ...,
         description="Taxa mensal unitária/decimal normalizada (ex: 0.006100 equivale a 0,61%).",
         examples=[Decimal("0.006100")],
     )
-    variacao_mensal_percentual: Decimal = Field(
+    variacao_mensal_percentual: Num = Field(
         ...,
         description="Taxa percentual de variação mensal (ex: 0.6100 equivale a 0,61%).",
         examples=[Decimal("0.6100")],
     )
-    variacao_ytd: Optional[Decimal] = Field(
+    variacao_ytd: Optional[Num] = Field(
         None,
         description="Variação acumulada no ano corrente (Year-to-Date) em formato decimal unitário.",
         examples=[Decimal("0.049085")],
     )
-    variacao_ytd_percentual: Optional[Decimal] = Field(
+    variacao_ytd_percentual: Optional[Num] = Field(
         None,
         description="Variação acumulada no ano corrente (YTD) em percentual (%).",
         examples=[Decimal("4.9085")],
     )
-    variacao_12m: Optional[Decimal] = Field(
+    variacao_12m: Optional[Num] = Field(
         None,
         description="Variação acumulada móvel dos últimos 12 meses em formato decimal unitário.",
         examples=[Decimal("0.064594")],
     )
-    variacao_12m_percentual: Optional[Decimal] = Field(
+    variacao_12m_percentual: Optional[Num] = Field(
         None,
         description="Variação acumulada móvel dos últimos 12 meses em percentual (%).",
         examples=[Decimal("6.4594")],
     )
-    numero_indice: Decimal = Field(
+    numero_indice: Num = Field(
         ...,
         description="Número-índice contínuo (base 100 móvel encadeada) utilizado para reajuste monetário.",
         examples=[Decimal("118.406632")],
@@ -133,7 +134,7 @@ class INCCHistoryResponse(BaseModel):
 class INCCCorrectionRequest(BaseModel):
     """Schema for requesting monetary adjustment/correction using INCC index."""
 
-    valor_inicial: Decimal = Field(
+    valor_inicial: Num = Field(
         ...,
         gt=0,
         description="Valor monetário nominal a ser corrigido (deve ser estritamente maior que zero).",
@@ -184,22 +185,22 @@ class INCCCorrectionRequest(BaseModel):
 class INCCCorrectionResponse(BaseModel):
     """Schema returning monetary correction calculation results."""
 
-    valor_inicial: Decimal = Field(
+    valor_inicial: Num = Field(
         ...,
         description="Valor monetário nominal original fornecido na requisição.",
         examples=[Decimal("250000.00")],
     )
-    valor_corrigido: Decimal = Field(
+    valor_corrigido: Num = Field(
         ...,
         description="Valor monetário ajustado pelo encadeamento contínuo da inflação do período.",
         examples=[Decimal("258250.00")],
     )
-    fator_correcao: Decimal = Field(
+    fator_correcao: Num = Field(
         ...,
         description="Fator multiplicador exato calculado pela razão (indice_final / indice_inicial).",
         examples=[Decimal("1.033000")],
     )
-    variacao_acumulada_percentual: Decimal = Field(
+    variacao_acumulada_percentual: Num = Field(
         ...,
         description="Variação percentual acumulada entre as duas datas: (Fator - 1) * 100.",
         examples=[Decimal("3.3000")],
@@ -214,12 +215,12 @@ class INCCCorrectionResponse(BaseModel):
         description="Data de competência final efetivamente utilizada no banco de dados.",
         examples=["2024-01-01"],
     )
-    indice_inicial: Decimal = Field(
+    indice_inicial: Num = Field(
         ...,
         description="Número-índice contínuo na data de início.",
         examples=[Decimal("100.000000")],
     )
-    indice_final: Decimal = Field(
+    indice_final: Num = Field(
         ...,
         description="Número-índice contínuo na data de fim.",
         examples=[Decimal("103.300000")],

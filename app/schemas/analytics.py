@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
+from app.core.numerico import Num  # ADR 009
 
 
 class INCCCurrentSnapshot(BaseModel):
@@ -11,23 +12,23 @@ class INCCCurrentSnapshot(BaseModel):
 
     sigla: str = Field(..., description="Sigla da variante do índice ('INCC-M' ou 'INCC-DI').", examples=["INCC-M"])
     data_id: date = Field(..., description="Data de referência da observação mais recente (YYYY-MM-01).", examples=["2024-06-01"])
-    variacao_mensal_percentual: Decimal = Field(..., description="Taxa de variação mensal percentual (%).", examples=[Decimal("0.6100")])
-    numero_indice: Decimal = Field(..., description="Número-índice contínuo em base 100 móvel encadeada.", examples=[Decimal("118.406632")])
-    variacao_ytd_percentual: Optional[Decimal] = Field(None, description="Taxa acumulada no ano corrente (YTD) em percentual (%).", examples=[Decimal("4.9085")])
-    variacao_12m_percentual: Optional[Decimal] = Field(None, description="Variação acumulada móvel dos últimos 12 meses em percentual (%).", examples=[Decimal("6.4594")])
-    variacao_24m_percentual: Optional[Decimal] = Field(None, description="Variação acumulada móvel dos últimos 24 meses em percentual (%).", examples=[Decimal("14.3580")])
-    variacao_36m_percentual: Optional[Decimal] = Field(None, description="Variação acumulada móvel dos últimos 36 meses em percentual (%).", examples=[Decimal("22.1840")])
+    variacao_mensal_percentual: Num = Field(..., description="Taxa de variação mensal percentual (%).", examples=[Decimal("0.6100")])
+    numero_indice: Num = Field(..., description="Número-índice contínuo em base 100 móvel encadeada.", examples=[Decimal("118.406632")])
+    variacao_ytd_percentual: Optional[Num] = Field(None, description="Taxa acumulada no ano corrente (YTD) em percentual (%).", examples=[Decimal("4.9085")])
+    variacao_12m_percentual: Optional[Num] = Field(None, description="Variação acumulada móvel dos últimos 12 meses em percentual (%).", examples=[Decimal("6.4594")])
+    variacao_24m_percentual: Optional[Num] = Field(None, description="Variação acumulada móvel dos últimos 24 meses em percentual (%).", examples=[Decimal("14.3580")])
+    variacao_36m_percentual: Optional[Num] = Field(None, description="Variação acumulada móvel dos últimos 36 meses em percentual (%).", examples=[Decimal("22.1840")])
 
 
 class INCCAcceleration(BaseModel):
     """Rate acceleration metrics compared to prior month and same month of previous year."""
 
-    delta_mes_anterior_pontos: Optional[Decimal] = Field(
+    delta_mes_anterior_pontos: Optional[Num] = Field(
         None,
         description="Diferença em pontos percentuais (p.p.) em relação ao mês imediatamente anterior.",
         examples=[Decimal("-0.1700")],
     )
-    delta_ano_anterior_pontos: Optional[Decimal] = Field(
+    delta_ano_anterior_pontos: Optional[Num] = Field(
         None,
         description="Diferença em pontos percentuais (p.p.) em relação ao mesmo mês do ano anterior.",
         examples=[Decimal("-0.3000")],
@@ -45,7 +46,7 @@ class INCCOverviewResponse(BaseModel):
     data_referencia: date = Field(..., description="Mês de competência consolidado mais recente disponível.", examples=["2024-06-01"])
     incc_m: Optional[INCCCurrentSnapshot] = Field(None, description="Métricas e acumulados vigentes do INCC-M.")
     incc_di: Optional[INCCCurrentSnapshot] = Field(None, description="Métricas e acumulados vigentes do INCC-DI.")
-    spread_mensal_pontos: Optional[Decimal] = Field(
+    spread_mensal_pontos: Optional[Num] = Field(
         None,
         description="Diferença pontual de taxas entre variantes em pontos percentuais (INCC-M - INCC-DI).",
         examples=[Decimal("-0.2400")],
@@ -96,11 +97,11 @@ class INCCCompareItem(BaseModel):
     data_id: date = Field(..., description="Data de competência da observação (YYYY-MM-01).", examples=["2024-06-01"])
     ano: int = Field(..., description="Ano da observação.", examples=[2024])
     mes: int = Field(..., description="Número do mês (1-12).", examples=[6])
-    incc_m_variacao_percentual: Optional[Decimal] = Field(None, description="Taxa mensal do INCC-M (%).", examples=[Decimal("0.6100")])
-    incc_m_indice: Optional[Decimal] = Field(None, description="Número-índice contínuo do INCC-M.", examples=[Decimal("118.406632")])
-    incc_di_variacao_percentual: Optional[Decimal] = Field(None, description="Taxa mensal do INCC-DI (%).", examples=[Decimal("0.8500")])
-    incc_di_indice: Optional[Decimal] = Field(None, description="Número-índice contínuo do INCC-DI.", examples=[Decimal("119.115357")])
-    spread_variacao_pontos: Optional[Decimal] = Field(
+    incc_m_variacao_percentual: Optional[Num] = Field(None, description="Taxa mensal do INCC-M (%).", examples=[Decimal("0.6100")])
+    incc_m_indice: Optional[Num] = Field(None, description="Número-índice contínuo do INCC-M.", examples=[Decimal("118.406632")])
+    incc_di_variacao_percentual: Optional[Num] = Field(None, description="Taxa mensal do INCC-DI (%).", examples=[Decimal("0.8500")])
+    incc_di_indice: Optional[Num] = Field(None, description="Número-índice contínuo do INCC-DI.", examples=[Decimal("119.115357")])
+    spread_variacao_pontos: Optional[Num] = Field(
         None,
         description="Spread pontual em pontos percentuais (INCC-M - INCC-DI).",
         examples=[Decimal("-0.2400")],
@@ -150,12 +151,12 @@ class INCCMonthSeasonality(BaseModel):
     mes: int = Field(..., description="Mês do calendário civil (1 a 12).", examples=[5])
     nome_mes: str = Field(..., description="Nome do mês em português.", examples=["Maio"])
     total_anos: int = Field(..., description="Total de anos civis históricos amostrados.", examples=[83])
-    media_variacao_percentual: Decimal = Field(..., description="Média histórica da variação percentual para este mês (%).", examples=[Decimal("4.3471")])
-    mediana_variacao_percentual: Decimal = Field(..., description="Mediana histórica da taxa mensal (%).", examples=[Decimal("1.8400")])
-    desvio_padrao_pontos: Decimal = Field(..., description="Desvio padrão amostral em pontos percentuais (p.p.).", examples=[Decimal("8.2145")])
-    minima_variacao_percentual: Decimal = Field(..., description="Menor variação já registrada neste mês calendário (%).", examples=[Decimal("-2.2200")])
-    maxima_variacao_percentual: Decimal = Field(..., description="Maior variação já registrada neste mês calendário (%).", examples=[Decimal("45.6000")])
-    probabilidade_alta_percentual: Decimal = Field(
+    media_variacao_percentual: Num = Field(..., description="Média histórica da variação percentual para este mês (%).", examples=[Decimal("4.3471")])
+    mediana_variacao_percentual: Num = Field(..., description="Mediana histórica da taxa mensal (%).", examples=[Decimal("1.8400")])
+    desvio_padrao_pontos: Num = Field(..., description="Desvio padrão amostral em pontos percentuais (p.p.).", examples=[Decimal("8.2145")])
+    minima_variacao_percentual: Num = Field(..., description="Menor variação já registrada neste mês calendário (%).", examples=[Decimal("-2.2200")])
+    maxima_variacao_percentual: Num = Field(..., description="Maior variação já registrada neste mês calendário (%).", examples=[Decimal("45.6000")])
+    probabilidade_alta_percentual: Num = Field(
         ...,
         description="Frequência histórica em que o índice fechou positivo neste mês (%).",
         examples=[Decimal("92.77")],
@@ -224,17 +225,17 @@ class INCCStatsResponse(BaseModel):
     total_observacoes: int = Field(..., description="Total de observações mensais dentro da janela consultada.", examples=[990])
     data_inicio: date = Field(..., description="Data da primeira observação dentro da janela consultada.", examples=["1944-02-01"])
     data_fim: date = Field(..., description="Data da última observação dentro da janela consultada.", examples=["2026-07-01"])
-    media_mensal_percentual: Decimal = Field(..., description="Média aritmética das taxas mensais da janela (%).", examples=[Decimal("4.0950")])
-    mediana_mensal_percentual: Decimal = Field(..., description="Mediana das taxas mensais da janela (%).", examples=[Decimal("1.0000")])
-    desvio_padrao_mensal_pontos: Decimal = Field(..., description="Desvio padrão amostral mensal da janela em pontos percentuais (p.p.).", examples=[Decimal("8.5623")])
-    volatilidade_anualizada_percentual: Decimal = Field(
+    media_mensal_percentual: Num = Field(..., description="Média aritmética das taxas mensais da janela (%).", examples=[Decimal("4.0950")])
+    mediana_mensal_percentual: Num = Field(..., description="Mediana das taxas mensais da janela (%).", examples=[Decimal("1.0000")])
+    desvio_padrao_mensal_pontos: Num = Field(..., description="Desvio padrão amostral mensal da janela em pontos percentuais (p.p.).", examples=[Decimal("8.5623")])
+    volatilidade_anualizada_percentual: Num = Field(
         ...,
         description="Volatilidade anualizada da janela calculada pela métrica padrão sigma * sqrt(12) (%).",
         examples=[Decimal("29.6608")],
     )
-    recorde_alta_percentual: Decimal = Field(..., description="Maior taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("78.4100")])
+    recorde_alta_percentual: Num = Field(..., description="Maior taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("78.4100")])
     recorde_alta_data: date = Field(..., description="Data exata em que ocorreu o recorde de alta na janela.", examples=["1990-03-01"])
-    recorde_baixa_percentual: Decimal = Field(..., description="Menor taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("-4.4200")])
+    recorde_baixa_percentual: Num = Field(..., description="Menor taxa de variação mensal registrada dentro da janela (%).", examples=[Decimal("-4.4200")])
     recorde_baixa_data: date = Field(..., description="Data exata em que ocorreu o recorde de baixa na janela.", examples=["1945-01-01"])
 
     model_config = ConfigDict(

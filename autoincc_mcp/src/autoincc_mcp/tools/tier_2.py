@@ -37,6 +37,14 @@ async def incc_correction(
     sigla: str = "INCC-M",
     ctx: Context | None = None,
 ) -> dict | list:
+    """Corrige um valor inicial por INCC no período informado.
+
+    **Tipagem (ADR 009):** todo valor numérico da resposta é JSON **number**
+    (`float`) — nunca string. Some e multiplique direto; as datas
+    (`data_inicio_utilizada`/`data_fim_utilizada`) seguem string ISO.
+
+    `data_fim` anterior a `data_inicio` é rejeitado com mensagem explícita.
+    """
     api_key = resolve_api_key(ctx)
     validate_dates(data_inicio, data_fim)
     body = {
