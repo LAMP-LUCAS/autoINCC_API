@@ -74,7 +74,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CACHE_ENABLED=True
       - CACHE_TTL_SECONDS=3600
-      - API_KEY=autoincc_secret_token_dev_123
+      # STORY-MCP-009: sem default. Defina API_KEY no .env (ver .env.example);
+      # ausente => o trigger de ETL fica desabilitado (503), nunca chave de dev.
+      - API_KEY=${API_KEY:?defina API_KEY no .env para habilitar o trigger de ETL}
       - BCB_API_URL=https://api.bcb.gov.br/dados/serie/bcdata.sgs
       - ETL_REQUEST_DELAY_BASE=1.5
       - ETL_REQUEST_DELAY_JITTER=1.5

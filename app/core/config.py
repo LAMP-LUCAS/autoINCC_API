@@ -17,7 +17,8 @@ class Settings(BaseSettings):
         DEBUG (bool): Debug mode flag.
         HOST (str): Host IP to bind server.
         PORT (int): Port number to bind server.
-        API_KEY (str): Secret API key for administrative endpoints.
+        API_KEY (str, opcional): chave do disparo administrativo de ETL.
+            Sem valor = trigger desabilitado (503). Sem default (STORY-MCP-009).
         DATABASE_URL (str): PostgreSQL connection URI.
         REDIS_URL (str): Redis URI for Celery broker, results, and L2 cache.
         CACHE_ENABLED (bool): Flag to enable/disable API caching in Redis.
@@ -36,7 +37,11 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    API_KEY: str = "autoincc_secret_token_dev_123"
+    # STORY-MCP-009: SEM default. Antes tinha um valor de dev hardcoded —
+    # qualquer instalação sem a env var subia com chave pública e o
+    # POST /api/v1/etl/trigger ficava acessível. Ausente = trigger desabilitado
+    # (503), nunca "chave de dev". Ver app/api/deps.py.
+    API_KEY: Optional[str] = None
     DATABASE_URL: str = "postgresql://postgres:postgrespassword@localhost:5432/autoincc"
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_ENABLED: bool = True

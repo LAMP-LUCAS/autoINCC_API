@@ -124,28 +124,31 @@ PYTHONPATH=. python3 -m pytest tests/ autoincc_mcp/tests/ -q
 | **Janela oculta** | agregação sem janela explícita é opaca para o agente — exponha (§4.4) |
 | **Data invertida** | `data_fim < data_inicio` se rejeita com mensagem, não se "corrige" |
 | **ETL = escrita em `NUMERIC`** | banco guarda Decimal; só a resposta vira float |
-| 🔴 **`API_KEY` do trigger de ETL tem default hardcoded** | `app/core/config.py` define um valor de dev como **padrão** (o mesmo aparece no `docker-compose.yml` e no README). Sem a env var `API_KEY`, o serviço sobe com uma chave conhecida publicamente e o `POST /api/v1/etl/trigger` fica aberto. **Não propague**: troque o default por vazio/erro (falhar alto, ADR 010) e rotacione a chave. Ver o registro em §6.1 |
+| ✅ **`API_KEY` do trigger de ETL sem default** | Resolvido (STORY-MCP-009): sem `API_KEY`, o endpoint responde **503** (desabilitado), nunca aceita chave de dev. Ver §6.1. **Se reintroduzir um default, a chave volta a ser pública.** |
 
-### 6.1 🔴 Pendência de segurança (pré-existente, não introduzido aqui)
+### 6.1 ✅ Segurança do trigger de ETL — resolvido (STORY-MCP-009, 2026-10-01)
 
-O endpoint administrativo de disparo do ETL (`POST /api/v1/etl/trigger`) é
-protegido por `API_KEY`, cujo **valor padrão está no código**
-(`app/core/config.py`) e é replicado no `docker-compose.yml` e no `README.md`.
-Enquanto o default existir, qualquer instalação que não defina a variável de
-ambiente sobe com uma credencial pública — o endpoint aceita disparo de ETL sem
-autenticação effectively.
+O endpoint administrativo `POST /api/v1/etl/trigger` era protegido por
+`API_KEY`, que tinha **valor padrão hardcoded** em `app/core/config.py`,
+replicado no `docker-compose.yml`, no `.env.example` e no README. Qualquer
+instalação que não definisse a variável subia com uma credencial pública.
 
-**Recomendação** (decisão de segurança, precisa de execução própria):
+**Correção (fail-loud, ADR 010):**
 
-1. `API_KEY` deixa de ter default — ausência = serviço não sobe (fail-loud,
-   ADR 010) ou o trigger fica desabilitado explicitamente;
-2. rotacionar o valor atual (está em histórico Git);
-3. `.env.example` só com placeholder, nunca valor.
+1. `API_KEY` **sem default** (`Optional[str] = None`). Ausente/branca = o
+   trigger fica **desabilitado**, respondendo `503` com o motivo nomeado — não
+   é "chave de dev", nem `403` (que significaria "chave errada").
+2. Chave em branco **nunca** autentica; comparação em tempo constante
+   (`secrets.compare_digest`).
+3. O health expõe `etl_trigger_habilitado` — o risco fica **visível**.
+4. `docker-compose.yml` **exige** a variável (`${API_KEY:?…}`); `.env.example`
+   só com placeholder (`openssl rand -hex 32`).
+5. Testes: `tests/test_etl_trigger_auth.py` (a chave de dev **não** autentica) e
+   `tests/test_api.py` (503/403/health).
 
-> Registrado aqui porque um maintainer que leia `config.py` pode reproduzir o
-> default. **Não citei o valor** de propósito.
-
----
+> **A chave antiga está no histórico Git** e, por isso, é **pública**. Se o
+> trigger chegou a ficar exposto, **rotacione**. A instância em produção já usa
+> chave própria (verificada: `etl_trigger_habilitado: true`).
 
 ## 7. Referências
 

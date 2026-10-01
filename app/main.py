@@ -178,15 +178,24 @@ def root() -> Dict[str, str]:
     status_code=status.HTTP_200_OK,
     include_in_schema=False,
 )
-def health_check() -> Dict[str, str]:
+def health_check() -> Dict[str, object]:
     """Service health verification probe for container orchestration.
 
     Contrato canônico do ecossistema Mundoaec: `GET /api/v1/incc/health`.
     Com a rota do gateway em `strip_path=false` (SSOT `setup.sh`) o upstream
     recebe o path completo; se alguém trocar para `strip_path=true` o mesmo
     handler continua sendo alcançado via `/health`, que também é mantido.
+
+    STORY-MCP-009: expõe `etl_trigger_habilitado`. O risco precisa ficar
+    **visível**, não só fechado — quem opera precisa ver, num único lugar,
+    que o disparo administrativo está (ou não) ativo. Não revela a chave.
     """
-    return {"status": "healthy"}
+    from app.api.deps import trigger_habilitado
+
+    return {
+        "status": "healthy",
+        "etl_trigger_habilitado": trigger_habilitado(),
+    }
 
 
 # Mount v1 routes

@@ -242,9 +242,13 @@ Content-Type: application/json
 ```
 
 ### 9. Disparo Manual do ETL via Celery Worker (Protegido)
+> **STORY-MCP-009:** a chave agora vem **apenas** do ambiente (`API_KEY`).
+> Sem ela, o endpoint responde `503` e o disparo fica **desabilitado** (por
+> desenho). Gere uma chave forte: `openssl rand -hex 32`.
+
 ```http
 POST /api/v1/etl/trigger
-X-API-Key: autoincc_secret_token_dev_123
+X-API-Key: <sua API_KEY>
 Content-Type: application/json
 
 {

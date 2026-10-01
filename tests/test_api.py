@@ -19,10 +19,17 @@ def test_root_endpoint(client: TestClient) -> None:
 
 
 def test_health_endpoint(client: TestClient) -> None:
-    """Verifies health check probe."""
+    """Verifica o probe de health.
+
+    STORY-MCP-009: o health expõe `etl_trigger_habilitado` — o risco de o
+    disparo administrativo estar fechado precisa ficar visível, não só
+    fechado. Sem `API_KEY` no ambiente, o trigger está desabilitado.
+    """
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    corpo = response.json()
+    assert corpo["status"] == "healthy"
+    assert isinstance(corpo["etl_trigger_habilitado"], bool)
 
 
 def test_health_canonical_contract(client: TestClient) -> None:
@@ -36,7 +43,9 @@ def test_health_canonical_contract(client: TestClient) -> None:
     """
     response = client.get("/api/v1/incc/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    corpo = response.json()
+    assert corpo["status"] == "healthy"
+    assert "etl_trigger_habilitado" in corpo
 
 
 def test_get_latest_incc_not_found(client: TestClient) -> None:
@@ -139,28 +148,46 @@ def test_calculate_incc_correction_endpoint(client: TestClient, seeded_incc_data
 
 
 def test_trigger_etl_unauthorized(client: TestClient) -> None:
-    """Verifies that missing or invalid API key header results in 403 Forbidden."""
-    # No header
-    resp_no_header = client.post("/api/v1/etl/trigger")
-    assert resp_no_header.status_code == 403
+    """STORY-MCP-009: sem `API_KEY` no ambiente, o trigger responde **503**
+    (desabilitado por desenho); com chave configurada, header ausente/errado é
+    **403**."""
+    from app.core.config import settings
 
-    # Invalid header
-    resp_wrong_header = client.post(
-        "/api/v1/etl/trigger",
-        headers={"X-API-Key": "wrong_key_123"},
-    )
-    assert resp_wrong_header.status_code == 403
+    original = settings.API_KEY
+    try:
+        # trigger desabilitado (sem chave) -> 503, e a chave de dev NÃO autentica
+        settings.API_KEY = None
+        assert client.post("/api/v1/etl/trigger").status_code == 503
+        assert client.post(
+            "/api/v1/etl/trigger", headers={"X-API-Key": "qualquer"}
+        ).status_code == 503
+
+        # com chave configurada, header ausente/errado -> 403
+        settings.API_KEY = "chave-de-teste"
+        assert client.post("/api/v1/etl/trigger").status_code == 403
+        assert client.post(
+            "/api/v1/etl/trigger", headers={"X-API-Key": "wrong_key_123"}
+        ).status_code == 403
+    finally:
+        settings.API_KEY = original
 
 
 def test_trigger_etl_authorized(client: TestClient) -> None:
-    """Verifies that valid API key accepts the ETL task asynchronously."""
-    response = client.post(
-        "/api/v1/etl/trigger",
-        headers={"X-API-Key": settings.API_KEY},
-        json={"series_codes": [192]},
-    )
-    assert response.status_code == 202
-    data = response.json()
-    assert data["status"] == "accepted"
-    assert "task_id" in data
-    assert data["series"] == [192]
+    """STORY-MCP-009: com `API_KEY` configurada, a chave correta aceita o
+    disparo assíncrono. A chave é definida no teste (o default saiu de
+    propósito)."""
+    original = settings.API_KEY
+    try:
+        settings.API_KEY = "chave-de-teste"
+        response = client.post(
+            "/api/v1/etl/trigger",
+            headers={"X-API-Key": "chave-de-teste"},
+            json={"series_codes": [192]},
+        )
+        assert response.status_code == 202
+        data = response.json()
+        assert data["status"] == "accepted"
+        assert "task_id" in data
+        assert data["series"] == [192]
+    finally:
+        settings.API_KEY = original
