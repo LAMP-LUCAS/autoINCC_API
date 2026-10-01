@@ -20,6 +20,19 @@ O AutoINCC adota arquitetura de microsserviços distribuídos de alta disponibil
 
 ---
 
+## 🛠️ Mantendo o Projeto
+
+Vai **modificar** esta API (ou o MCP embutido)? Comece pelo
+**[📘 Manual de Manutenção](docs/MANUAL_DE_MANUTENCAO.md)** — doutrina, mapa do
+código, contrato de resposta, a evolução da auditoria (inclusive a correção da
+escala oficial do índice) e armadilhas.
+
+| Documento | Para quê |
+|---|---|
+| [**Manual de manutenção (API)**](docs/MANUAL_DE_MANUTENCAO.md) | Como mudar: rotas, schemas, janela, ETL |
+| [**Manual de manutenção (MCP)**](autoincc_mcp/docs/MANUAL_DE_MANUTENCAO.md) | As 8 tools que o agente consome |
+| [Story da auditoria](docs/PLAN-auditoria-mcp-p0.md) | O que mudou e por quê |
+
 ## 🏛️ Arquitetura de Microsserviços & Resiliência
 
 ```text
